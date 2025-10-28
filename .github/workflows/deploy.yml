@@ -1,0 +1,45 @@
+name: Deploy to Bunny Storage
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "users/**"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rclone
+        run: curl https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone (Bunny)
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [bunny]
+          type = s3
+          provider = Other
+          env_auth = false
+          access_key_id =
+          secret_access_key = ${BUNNY_ACCESS_KEY}
+          endpoint = ${BUNNY_STORAGE_ENDPOINT:-https://storage.bunnycdn.com}
+          region = auto
+          no_check_bucket = true
+          EOF
+        env:
+          BUNNY_ACCESS_KEY: ${{ secrets.BUNNY_ACCESS_KEY }}
+          BUNNY_STORAGE_ENDPOINT: ${{ secrets.BUNNY_STORAGE_ENDPOINT }}
+
+      - name: Sync users/* → Bunny Storage
+        run: |
+          rclone sync ./users bunny:${{ secrets.BUNNY_STORAGE_NAME }}/users \
+            --progress --copy-links --transfers=8 --checkers=8 --metadata \
+            --s3-upload-concurrency=8 \
+            --header-upload "Cache-Control: public, max-age=31536000, immutable"
+
+      - name: Sample URL
+        run: echo "e.g. https://g.zcxv.xyz/users/you/test/a/1.webp"
