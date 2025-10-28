@@ -13,8 +13,19 @@ This repository stores static assets that are mirrored to [Bunny Storage](https:
 2. **Bunny Pull Zone 점검**  
    Bunny 대시보드에서 Pull Zone을 열어 **Force Hostname**을 `g.zcxv.xyz`(또는 원하는 도메인)으로 설정하고, 필요하면 **Block direct access to the storage zone** 옵션을 켭니다.
 
-3. **파일 준비 및 커밋**  
+3. **파일 준비 및 커밋**
    `users/` 아래에 자신의 폴더(예: `users/you/`)를 만들고 업로드할 이미지·파일을 넣은 뒤 `main` 브랜치에 커밋/푸시합니다.
+
+   ```bash
+   # 새 파일을 추가했다면
+   git add users/you/<업로드할-파일>
+
+   # 변경 내용을 설명하는 메시지와 함께 커밋합니다
+   git commit -m "Add new asset for Bunny CDN"
+
+   # 원격 저장소(main 브랜치)로 업로드
+   git push origin main
+   ```
 
 4. **GitHub Actions 결과 확인**  
    푸시가 끝나면 Actions 탭에서 `Deploy to Bunny Storage` 워크플로 실행 내역을 확인합니다. 성공하면 파일이 Bunny Storage에 동기화됩니다.
