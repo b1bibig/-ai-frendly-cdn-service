@@ -1,25 +1,23 @@
 # Bunny CDN Uploader
 
-Single-repo Next.js (App Router) app that lets users log in with a 4-character `uidToken`, upload images to Bunny Storage via server-side fetch, and access them from Bunny CDN.
+Next.js (App Router) single-repo app for uploading images to Bunny Storage and serving them via Bunny CDN.
 
-## How it works
-- `/login`: enter `uidToken` (4 alphanumeric). The API stores it in an `httpOnly` `uid_token` cookie.
-- `/`: shows current `uidToken`, accepts a relative path (after `/<uidToken>/`), and uploads the selected file through `POST /api/upload`.
-- `POST /api/upload`: validates the cookie + path, streams the file to Bunny Storage with `PUT`, and returns the CDN URL (`https://g.zcxv.xyz/<uidToken>/<relativePath>`).
+## Flow
+- `/login`: input 4-character `uidToken` -> stored as `uid_token` httpOnly cookie.
+- `/`: enter relative path (after `/<uidToken>/`), pick file, upload via `POST /api/upload`.
+- `/api/upload`: validates cookie + path, PUTs the file to Bunny Storage, returns CDN URL `https://g.zcxv.xyz/<uidToken>/<relativePath>`.
 
-## Required environment
-Set these in Vercel (or `.env.local` for local dev):
+## Required environment (set in Vercel)
 ```
 BUNNY_STORAGE_HOST=sg.storage.bunnycdn.com
 BUNNY_STORAGE_ZONE=cdnserving
 BUNNY_ACCESS_KEY=YOUR_STORAGE_API_PASSWORD
 BUNNY_CDN_BASE_URL=https://g.zcxv.xyz
-APP_ORIGIN=https://your-app-domain.example
 ```
 
 ## URL rules
-- `uidToken`: 4 alphanumeric characters, stored as `uid_token` cookie.
-- Upload path: `<uidToken>/<relativePath>` where `relativePath` has no `..`, no backslashes, and no leading/trailing `/`.
+- `uidToken`: 4 alphanumeric characters.
+- Upload path: `<uidToken>/<relativePath>`; `relativePath` must not contain `..`, backslashes, or leading/trailing `/`.
 - Bunny upload target: `https://sg.storage.bunnycdn.com/cdnserving/<uidToken>/<relativePath>`.
 - CDN access: `https://g.zcxv.xyz/<uidToken>/<relativePath>`.
 
@@ -31,6 +29,6 @@ npm run dev
 ```
 
 ## Notes
-- Cookies are `httpOnly`, `secure`, `sameSite=lax`, path `/` (for local HTTP dev you may need to run over HTTPS or relax `secure` if desired). `secure` is enforced only in production.
-- Upload API uses `fetch` with `PUT` and `AccessKey` header; responses include the final CDN URL. Uploads are limited to images and capped at 10MB, with Origin/Referer validation (`APP_ORIGIN` should match your deployed origin).
-- Output is Vercel-ready; server runtime stays on Node.js with App Router API routes.
+- Cookies are `httpOnly`, `secure`, `sameSite=lax`, path `/` (`secure` is only enforced in production).
+- Upload API uses relative fetch (`/api/upload`), sends PUT with `AccessKey`, limits to images, and caps size at 10MB.
+- No origin-based URL building; Bunny URLs are built solely from the environment variables above.

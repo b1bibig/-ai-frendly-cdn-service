@@ -33,25 +33,6 @@ export async function POST(request) {
     );
   }
 
-  const originHeader = request.headers.get("origin") || request.headers.get("referer");
-  if (originHeader) {
-    try {
-      const requestOrigin = new URL(originHeader).origin;
-      const allowedOrigin = process.env.APP_ORIGIN || request.nextUrl.origin;
-      if (requestOrigin !== allowedOrigin) {
-        return NextResponse.json(
-          { ok: false, error: "Forbidden: origin not allowed" },
-          { status: 403 }
-        );
-      }
-    } catch {
-      return NextResponse.json(
-        { ok: false, error: "Invalid origin header" },
-        { status: 400 }
-      );
-    }
-  }
-
   let relativePath;
   let file;
 
