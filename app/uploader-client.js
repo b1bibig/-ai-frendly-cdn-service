@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
 
@@ -11,6 +11,18 @@ export default function UploaderClient({ initialUidToken }) {
   const [status, setStatus] = useState("");
   const [cdnUrl, setCdnUrl] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (uidToken) return;
+    const cookie = document.cookie
+      .split(";")
+      .map((v) => v.trim())
+      .find((v) => v.startsWith("uid_token="));
+    if (cookie) {
+      const value = cookie.split("=").slice(1).join("=");
+      setUidToken(decodeURIComponent(value));
+    }
+  }, [uidToken]);
 
   const validateClientPath = useCallback((value) => {
     if (!value.trim()) return "Enter a relative path (e.g. folder/file.png)";
