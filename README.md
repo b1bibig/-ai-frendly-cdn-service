@@ -14,6 +14,7 @@ BUNNY_STORAGE_HOST=sg.storage.bunnycdn.com
 BUNNY_STORAGE_ZONE=cdnserving
 BUNNY_ACCESS_KEY=YOUR_STORAGE_API_PASSWORD
 BUNNY_CDN_BASE_URL=https://g.zcxv.xyz
+APP_ORIGIN=https://your-app-domain.example
 ```
 
 ## URL rules
@@ -30,6 +31,6 @@ npm run dev
 ```
 
 ## Notes
-- Cookies are `httpOnly`, `secure`, `sameSite=lax`, path `/` (for local HTTP dev you may need to run over HTTPS or relax `secure` if desired).
-- Upload API uses `fetch` with `PUT` and `AccessKey` header; responses include the final CDN URL.
+- Cookies are `httpOnly`, `secure`, `sameSite=lax`, path `/` (for local HTTP dev you may need to run over HTTPS or relax `secure` if desired). `secure` is enforced only in production.
+- Upload API uses `fetch` with `PUT` and `AccessKey` header; responses include the final CDN URL. Uploads are limited to images and capped at 10MB, with Origin/Referer validation (`APP_ORIGIN` should match your deployed origin).
 - Output is Vercel-ready; server runtime stays on Node.js with App Router API routes.

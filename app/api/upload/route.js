@@ -3,6 +3,16 @@ import { cookies } from "next/headers";
 import { normalizeRelativePath } from "@/app/lib/path-utils";
 
 const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_MIME = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+  "image/svg+xml",
+]);
 
 export const runtime = "nodejs";
 
@@ -23,6 +33,25 @@ export async function POST(request) {
     );
   }
 
+  const originHeader = request.headers.get("origin") || request.headers.get("referer");
+  if (originHeader) {
+    try {
+      const requestOrigin = new URL(originHeader).origin;
+      const allowedOrigin = process.env.APP_ORIGIN || request.nextUrl.origin;
+      if (requestOrigin !== allowedOrigin) {
+        return NextResponse.json(
+          { ok: false, error: "Forbidden: origin not allowed" },
+          { status: 403 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "Invalid origin header" },
+        { status: 400 }
+      );
+    }
+  }
+
   let relativePath;
   let file;
 
@@ -41,6 +70,20 @@ export async function POST(request) {
     return NextResponse.json(
       { ok: false, error: "File is required" },
       { status: 400 }
+    );
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { ok: false, error: `File too large. Max ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB` },
+      { status: 413 }
+    );
+  }
+
+  if (file.type && !ALLOWED_MIME.has(file.type)) {
+    return NextResponse.json(
+      { ok: false, error: "Only image uploads are allowed" },
+      { status: 415 }
     );
   }
 
