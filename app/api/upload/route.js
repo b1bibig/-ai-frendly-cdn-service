@@ -25,7 +25,8 @@ function getEnv(key) {
 }
 
 export async function POST(request) {
-  const uidToken = cookies().get("uid_token")?.value ?? "";
+  const cookieStore = cookies();
+  const uidToken = cookieStore.get("uid_token")?.value ?? "";
   if (!TOKEN_REGEX.test(uidToken)) {
     return NextResponse.json(
       { ok: false, error: "Unauthorized: set uidToken at /login" },
