@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [uidToken, setUidToken] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -16,15 +18,15 @@ export default function LoginPage() {
     setBusy(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, uidToken, inviteCode }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
-        setMessage(data?.error || "Login failed");
+        setMessage(data?.error || "Signup failed");
         return;
       }
       router.replace("/");
@@ -40,9 +42,9 @@ export default function LoginPage() {
     <div className="panel stack gap-lg">
       <div className="panel-heading">
         <div>
-          <div className="eyebrow">Login</div>
-          <h2 className="title">Sign in</h2>
-          <p className="muted">이메일과 비밀번호로 로그인하세요.</p>
+          <div className="eyebrow">Signup</div>
+          <h2 className="title">Create account</h2>
+          <p className="muted">초대코드가 필요합니다.</p>
         </div>
       </div>
 
@@ -66,20 +68,44 @@ export default function LoginPage() {
             name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+        </label>
+
+        <label className="field">
+          <span>uidToken (4 chars)</span>
+          <input
+            type="text"
+            name="uidToken"
+            value={uidToken}
+            onChange={(e) => setUidToken(e.target.value)}
+            maxLength={4}
+            required
+          />
+        </label>
+
+        <label className="field">
+          <span>Invite code</span>
+          <input
+            type="text"
+            name="inviteCode"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
             required
           />
         </label>
 
         <button className="button" type="submit" disabled={busy}>
-          {busy ? "Signing in..." : "Sign in"}
+          {busy ? "Creating..." : "Create account"}
         </button>
       </form>
 
       <p className="muted">
-        계정이 없나요?{" "}
-        <a className="link" href="/signup">
-          회원가입
+        이미 계정이 있나요?{" "}
+        <a className="link" href="/login">
+          로그인
         </a>
       </p>
 

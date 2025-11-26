@@ -1,28 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
 
-export default function UploaderClient({ initialUidToken }) {
+export default function UploaderClient({ initialUidToken, userEmail }) {
   const [uidToken, setUidToken] = useState(initialUidToken || "");
   const [path, setPath] = useState("");
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("");
   const [cdnUrl, setCdnUrl] = useState("");
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (uidToken) return;
-    const cookie = document.cookie
-      .split(";")
-      .map((v) => v.trim())
-      .find((v) => v.startsWith("uid_token="));
-    if (cookie) {
-      const value = cookie.split("=").slice(1).join("=");
-      setUidToken(decodeURIComponent(value));
-    }
-  }, [uidToken]);
 
   const validateClientPath = useCallback((value) => {
     if (!value.trim()) return "Enter a relative path (e.g. folder/file.png)";
@@ -90,12 +78,25 @@ export default function UploaderClient({ initialUidToken }) {
     <section className="stack gap-lg">
       <div className="panel-heading">
         <div>
-          <div className="eyebrow">Current uidToken</div>
-          <div className="uid">{uidToken || "Not set"}</div>
+          <div className="eyebrow">Signed in</div>
+          <div className="uid">{userEmail || "Not logged in"}</div>
+          <div className="muted">uidToken: {uidToken || "Not set"}</div>
         </div>
-        <a className="link" href="/login">
-          Set uidToken
-        </a>
+        <div className="header-actions">
+          <a className="link" href="/signup">
+            회원가입
+          </a>
+          <button
+            className="pill"
+            type="button"
+            onClick={async () => {
+              await fetch("/api/auth/login", { method: "DELETE" });
+              window.location.href = "/login";
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <form className="stack gap-md" onSubmit={onSubmit}>
