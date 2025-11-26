@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
-import { getCurrentUser } from "../lib/auth";
+import { getCurrentUser, hasRole } from "../lib/auth";
 import InvitesConsole from "./section";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function DevPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (![UserRole.OWNER, UserRole.ADMIN].includes(user.role)) redirect("/");
+  if (!hasRole(user, [UserRole.OWNER, UserRole.ADMIN])) redirect("/");
 
   return (
     <div className="stack gap-lg">
