@@ -78,5 +78,9 @@ export function clearSessionCookie(response) {
 }
 
 export function getSessionTokenFromCookies(cookieStore) {
+  if (!cookieStore || typeof cookieStore.get !== "function") {
+    return "";
+  }
+
   return cookieStore.get(SESSION_COOKIE)?.value || "";
 }
