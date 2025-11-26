@@ -1,4 +1,5 @@
 import "./globals.css";
+import type { ReactNode } from "react";
 import { Space_Grotesk } from "next/font/google";
 
 const spaceGrotesk = Space_Grotesk({
@@ -11,7 +12,7 @@ export const metadata = {
   description: "Upload images to Bunny Storage and serve from g.zcxv.xyz",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className={`${spaceGrotesk.variable} app-body`}>
@@ -21,12 +22,20 @@ export default function RootLayout({ children }) {
             <div className="brand">
               <div className="eyebrow">Bunny CDN / Storage</div>
               <h1>CDN Uploader</h1>
-              <p>Single repo for UI + API, ready for Vercel</p>
+              <p>Invite 기반 로그인 + 업로드 관리</p>
             </div>
             <div className="header-actions">
-              <span className="pill">App Router</span>
+              <a className="pill link" href="/">
+                업로더
+              </a>
+              <a className="pill link" href="/dev">
+                초대 관리
+              </a>
+              <a className="pill link" href="/account/tokens">
+                API 토큰
+              </a>
               <a className="pill link" href="/login">
-                Set uidToken
+                로그인
               </a>
             </div>
           </header>
