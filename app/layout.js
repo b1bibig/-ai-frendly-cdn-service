@@ -25,6 +25,9 @@ export default function RootLayout({ children }) {
             </div>
             <div className="header-actions">
               <span className="pill">App Router</span>
+              <a className="pill link" href="/dev">
+                Dev console
+              </a>
               <a className="pill link" href="/login">
                 Set uidToken
               </a>
