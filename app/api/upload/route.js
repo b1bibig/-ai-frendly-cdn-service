@@ -26,9 +26,18 @@ function getEnv(key) {
 }
 
 export async function POST(request) {
-  const cookieStore = cookies();
-  const sessionToken = getSessionTokenFromCookies(cookieStore);
-  const session = verifySessionToken(sessionToken);
+  let session;
+
+  try {
+    const cookieStore = cookies();
+    const sessionToken = getSessionTokenFromCookies(cookieStore);
+    session = verifySessionToken(sessionToken);
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: "Failed to read authentication cookies" },
+      { status: 400 }
+    );
+  }
 
   if (!session || !TOKEN_REGEX.test(session.uidToken)) {
     return NextResponse.json(
