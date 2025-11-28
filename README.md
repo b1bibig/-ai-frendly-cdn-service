@@ -26,7 +26,11 @@ DATABASE_URL=<Vercel Postgres URL>
 NEXTAUTH_SECRET=YOUR_LONG_RANDOM_SECRET
 ```
 
-Store these in `.env.local` (never in `next.config.ts`), so they remain server-only and aren't exposed to the browser.
+Where to put them:
+- **Local dev**: create `.env.local` in the project root (same folder as `package.json`). Next.js loads it automatically; it is *not* read from your OS home directory.
+- **Vercel**: add the keys in the Vercel dashboard under *Project Settings → Environment Variables*; redeploy so the server picks them up. You do not commit these values to git.
+
+Never copy secrets into `next.config.ts` or client components—leave them server-only.
 
 ## DB schema (Postgres)
 Run these once (e.g., via Vercel Postgres SQL):
