@@ -6,10 +6,9 @@ import CredentialsProvider from "next-auth/providers/credentials";
 const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const authSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-const fallbackSecret = "development-nextauth-secret";
 
 if (!authSecret && process.env.NODE_ENV === "production") {
-  console.warn("NEXTAUTH_SECRET is missing; using fallback secret for build-time only.");
+  throw new Error("NEXTAUTH_SECRET or AUTH_SECRET must be set in production.");
 }
 
 async function findUserByEmail(email: string) {
@@ -35,7 +34,7 @@ async function verifyPassword(password: string, hashed: string) {
 }
 
 export const authOptions: NextAuthOptions = {
-  secret: authSecret || fallbackSecret,
+  secret: authSecret,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
