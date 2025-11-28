@@ -3,16 +3,15 @@
 Next.js (App Router) app with invite-only signup, email/password login, and Bunny Storage uploads served via Bunny CDN.
 
 ## Flows
-- Signup: `/signup` → email, password (>=8), uidToken(4 chars), invite code → account created → session cookie set.
-- Login: `/login` → email/password → session cookie set.
-- Upload: `/` → shows signed-in email + uidToken, path + file upload → `POST /api/upload` → uploads to Bunny Storage and returns CDN URL `https://g.zcxv.xyz/<uidToken>/<relativePath>`.
-- Logout: `/api/auth/login` (DELETE) clears session cookie.
+- Signup: `/signup` → email, password (>=8), uidToken(4 chars), invite code → account created → automatic sign-in via NextAuth.
+- Login: `/login` → email/password → NextAuth credentials sign-in.
+- Upload: `/` → shows signed-in email + uidToken, path + file upload → `POST /api/upload` (NextAuth session required) → uploads to Bunny Storage and returns CDN URL `https://g.zcxv.xyz/<uidToken>/<relativePath>`.
+- Logout: header button triggers NextAuth sign-out and redirects to `/login`.
 - Invite issue: `POST /api/invites` with header `x-admin-token: <ADMIN_TOKEN>` returns a new invite code (optionally with `expiresAt` in body).
 
 ## API summary
 - `POST /api/auth/signup` body `{ email, password, uidToken, inviteCode }`
-- `POST /api/auth/login` body `{ email, password }`
-- `DELETE /api/auth/login` (logout)
+- `POST /api/auth/[...nextauth]` (NextAuth handler for credentials and OAuth callbacks)
 - `POST /api/upload` FormData `{ file, path }` (requires session cookie)
 - `POST /api/invites` (admin only, header `x-admin-token`)
 
@@ -22,10 +21,16 @@ BUNNY_STORAGE_HOST=sg.storage.bunnycdn.com
 BUNNY_STORAGE_ZONE=cdnserving
 BUNNY_ACCESS_KEY=YOUR_STORAGE_API_PASSWORD
 BUNNY_CDN_BASE_URL=https://g.zcxv.xyz
-SESSION_SECRET=YOUR_LONG_RANDOM_SECRET
 ADMIN_TOKEN=YOUR_ADMIN_TOKEN
 DATABASE_URL=<Vercel Postgres URL>
+NEXTAUTH_SECRET=YOUR_LONG_RANDOM_SECRET
 ```
+
+Where to put them:
+- **Local dev**: create `.env.local` in the project root (same folder as `package.json`). Next.js loads it automatically; it is *not* read from your OS home directory.
+- **Vercel**: add the keys in the Vercel dashboard under *Project Settings → Environment Variables*; redeploy so the server picks them up. You do not commit these values to git.
+
+Never copy secrets into `next.config.ts` or client components—leave them server-only.
 
 ## DB schema (Postgres)
 Run these once (e.g., via Vercel Postgres SQL):
@@ -53,7 +58,7 @@ CREATE TABLE IF NOT EXISTS invites (
 - Upload path: `<uidToken>/<relativePath>`; `relativePath` must not contain `..`, backslashes, or leading/trailing `/`.
 - Bunny upload target: `https://sg.storage.bunnycdn.com/cdnserving/<uidToken>/<relativePath>`.
 - CDN URL returned: `https://g.zcxv.xyz/<uidToken>/<relativePath>`.
-- Session cookie: httpOnly, sameSite=lax, secure in production, set at login/signup.
+- Session cookie: httpOnly, sameSite=lax, secure in production, managed by NextAuth.
 
 ## Local dev
 ```bash

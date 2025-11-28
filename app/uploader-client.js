@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from "react";
+import { signOut } from "next-auth/react";
 
 const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
 
@@ -90,8 +91,7 @@ export default function UploaderClient({ initialUidToken, userEmail }) {
             className="pill"
             type="button"
             onClick={async () => {
-              await fetch("/api/auth/login", { method: "DELETE" });
-              window.location.href = "/login";
+              await signOut({ callbackUrl: "/login" });
             }}
           >
             Logout
