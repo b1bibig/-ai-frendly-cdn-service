@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { sql } from "@/app/lib/db";
-import { createSessionToken, setSessionCookie } from "@/app/lib/session";
 
 const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
@@ -66,13 +65,10 @@ export async function POST(request) {
       WHERE id = ${invite.id}
     `;
 
-    const token = createSessionToken(user);
-    const response = NextResponse.json({
+    return NextResponse.json({
       ok: true,
       user: { id: user.id, email: user.email, uidToken: user.uid_token },
     });
-    setSessionCookie(response, token);
-    return response;
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: "Failed to create account" },
