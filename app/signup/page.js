@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -29,6 +30,18 @@ export default function SignupPage() {
         setMessage(data?.error || "Signup failed");
         return;
       }
+
+      const signInResult = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (signInResult?.error) {
+        setMessage("Account created, but automatic login failed.");
+        return;
+      }
+
       router.replace("/");
     } catch (error) {
       console.error(error);

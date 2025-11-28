@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { normalizeRelativePath } from "@/app/lib/path-utils";
-import { verifySessionToken, getSessionTokenFromCookies } from "@/app/lib/session";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
@@ -26,20 +26,9 @@ function getEnv(key) {
 }
 
 export async function POST(request) {
-  let session;
+  const session = await getServerSession(authOptions);
 
-  try {
-    const cookieStore = cookies();
-    const sessionToken = getSessionTokenFromCookies(cookieStore);
-    session = verifySessionToken(sessionToken);
-  } catch (error) {
-    return NextResponse.json(
-      { ok: false, error: "Failed to read authentication cookies" },
-      { status: 400 }
-    );
-  }
-
-  if (!session || !TOKEN_REGEX.test(session.uidToken)) {
+  if (!session?.user?.uidToken || !TOKEN_REGEX.test(session.user.uidToken)) {
     return NextResponse.json(
       { ok: false, error: "Unauthorized: please log in" },
       { status: 401 }
@@ -98,7 +87,7 @@ export async function POST(request) {
     );
   }
 
-  const uploadUrl = `https://${bunnyHost}/${bunnyZone}/${session.uidToken}/${relativePath}`;
+  const uploadUrl = `https://${bunnyHost}/${bunnyZone}/${session.user.uidToken}/${relativePath}`;
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
   const bunnyResponse = await fetch(uploadUrl, {
@@ -120,7 +109,7 @@ export async function POST(request) {
   }
 
   const normalizedCdnBase = cdnBase.replace(/\/+$/, "");
-  const cdnUrl = `${normalizedCdnBase}/${session.uidToken}/${relativePath}`;
+  const cdnUrl = `${normalizedCdnBase}/${session.user.uidToken}/${relativePath}`;
 
   return NextResponse.json({ ok: true, cdnUrl });
 }
