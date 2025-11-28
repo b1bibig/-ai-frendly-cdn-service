@@ -62,6 +62,36 @@ npm run dev
 # open http://localhost:3000
 ```
 
+## Manual invite request helper
+Use the bundled script to issue a test request against a deployed instance (e.g., Vercel). Provide the deployment URL and your admin token:
+
+```bash
+# ADMIN_TOKEN can be set via env var instead of --token
+npm run request:invite -- --url https://<your-deployment> --token nfhsucjsd67gg
+```
+
+Optional: include an expiration timestamp (ISO string or any `Date`-parsable value):
+
+```bash
+npm run request:invite -- --url https://<your-deployment> --token nfhsucjsd67gg --expires-at "2025-12-31T15:00:00Z"
+```
+
+If the script reports a network error (e.g., `ENETUNREACH`, `ENOTFOUND`, `ECONNREFUSED`), verify that your environment can reach the deployment domain and that the deployment is live.
+
+## Direct API request test (curl)
+If you prefer not to use the helper script, you can hit the invite endpoint directly. Replace the URL with your deployment and keep the `x-admin-token` header value in sync with the token configured in Vercel:
+
+```bash
+curl -i -X POST https://<your-deployment>/api/invites \
+  -H "x-admin-token: nfhsucjsd67gg" \
+  -H "Content-Type: application/json" \
+  -d '{"expiresAt": null}'
+```
+
+- A `200` response with JSON `{"ok":true,"code":...}` indicates success.
+- A `401` means the provided token does not match `ADMIN_TOKEN` in the deployment.
+- Network errors (e.g., `ENETUNREACH`) indicate connectivity issues from the client environment to the deployment; retry from a network that can reach the Vercel domain.
+
 ## Notes
 - All fetches use relative URLs (`/api/...`); no origin/window-based API URLs.
 - Uploads limited to images, capped at 10MB, and require an authenticated session.
