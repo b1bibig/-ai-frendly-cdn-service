@@ -11,9 +11,21 @@ export default function SignupPage() {
   const [inviteCode, setInviteCode] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [agreements, setAgreements] = useState({
+    terms: false,
+    privacy: false,
+    contentPolicy: false,
+  });
+
+  const allAgreed =
+    agreements.terms && agreements.privacy && agreements.contentPolicy;
 
   const onSubmit = async (event) => {
     event.preventDefault();
+    if (!allAgreed) {
+      setMessage("모든 약관에 동의해야 회원가입이 가능합니다.");
+      return;
+    }
     setMessage("");
     setBusy(true);
 
@@ -97,7 +109,79 @@ export default function SignupPage() {
           />
         </label>
 
-        <button className="button" type="submit" disabled={busy}>
+        <div className="stack gap-sm">
+          <div className="checkbox">
+            <input
+              id="agree-terms"
+              type="checkbox"
+              checked={agreements.terms}
+              onChange={(e) =>
+                setAgreements((prev) => ({ ...prev, terms: e.target.checked }))
+              }
+              required
+            />
+            <label htmlFor="agree-terms">
+              <a className="link" href="/terms" target="_blank" rel="noreferrer">
+                이용약관
+              </a>
+              에 동의합니다.
+            </label>
+          </div>
+
+          <div className="checkbox">
+            <input
+              id="agree-privacy"
+              type="checkbox"
+              checked={agreements.privacy}
+              onChange={(e) =>
+                setAgreements((prev) => ({
+                  ...prev,
+                  privacy: e.target.checked,
+                }))
+              }
+              required
+            />
+            <label htmlFor="agree-privacy">
+              <a
+                className="link"
+                href="/privacy"
+                target="_blank"
+                rel="noreferrer"
+              >
+                개인정보 처리방침
+              </a>
+              에 동의합니다.
+            </label>
+          </div>
+
+          <div className="checkbox">
+            <input
+              id="agree-content"
+              type="checkbox"
+              checked={agreements.contentPolicy}
+              onChange={(e) =>
+                setAgreements((prev) => ({
+                  ...prev,
+                  contentPolicy: e.target.checked,
+                }))
+              }
+              required
+            />
+            <label htmlFor="agree-content">
+              <a
+                className="link"
+                href="/content-policy"
+                target="_blank"
+                rel="noreferrer"
+              >
+                콘텐츠 및 이용정책
+              </a>
+              에 동의합니다.
+            </label>
+          </div>
+        </div>
+
+        <button className="button" type="submit" disabled={busy || !allAgreed}>
           {busy ? "Creating..." : "Create account"}
         </button>
       </form>
