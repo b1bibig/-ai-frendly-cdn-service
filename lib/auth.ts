@@ -1,44 +1,12 @@
+// lib/auth.ts
 import bcrypt from "bcryptjs";
-import { sql } from "@/app/lib/db";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-
-const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
-const authSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-const fallbackSecret = "development-nextauth-secret";
-
-if (!authSecret && process.env.NODE_ENV === "production") {
-  console.warn("NEXTAUTH_SECRET is missing; using fallback secret for build-time only.");
-}
-
-async function findUserByEmail(email: string) {
-  const result = await sql`
-    SELECT id, email, password_hash, uid_token
-    FROM users
-    WHERE email = ${email}
-    LIMIT 1
-  `;
-
-  return result.rows?.[0] as
-    | { id: string; email: string; password_hash: string; uid_token?: string | null }
-    | undefined;
-}
-
-async function verifyPassword(password: string, hashed: string) {
-  try {
-    return await bcrypt.compare(password, hashed);
-  } catch (error) {
-    console.error("Failed to compare passwords", error);
-    return false;
-  }
-}
+import { prisma } from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
-  secret: authSecret || fallbackSecret,
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
+  session: {
+    strategy: "jwt",
   },
   providers: [
     CredentialsProvider({
@@ -47,45 +15,54 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
-        const email = credentials?.email?.toLowerCase().trim() ?? "";
-        const password = credentials?.password ?? "";
-
-        if (!EMAIL_REGEX.test(email) || !password) {
-          throw new Error("Invalid email or password");
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
         }
 
-        const user = await findUserByEmail(email);
+        // Prisma를 사용해서 유저 찾기
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
         if (!user) {
-          throw new Error("Invalid credentials");
+          // 이메일 없음
+          return null;
         }
 
-        const valid = await verifyPassword(password, user.password_hash);
-        if (!valid) {
-          throw new Error("Invalid credentials");
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.passwordHash
+        );
+
+        if (!isValid) {
+          // 비밀번호 틀림
+          return null;
         }
 
+        // NextAuth에 넘길 최소 유저 정보
         return {
-          id: String(user.id),
+          id: user.id,
           email: user.email,
-          uidToken: user.uid_token,
         };
       },
     }),
   ],
+  pages: {
+    signIn: "/login", // 너 로그인 페이지 경로에 맞게 바꿔도 됨
+  },
   callbacks: {
     async jwt({ token, user }) {
+      // 로그인 직후 user 객체를 JWT에 실어보내기
       if (user) {
-        token.sub = user.id as string;
-        token.email = (user as { email?: string | null })?.email ?? token.email;
-        token.uidToken = (user as { uidToken?: string | null })?.uidToken || null;
+        token.userId = (user as any).id;
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub as string;
-        session.user.uidToken = (token as { uidToken?: string | null })?.uidToken || null;
+      // 세션 객체에 userId 심어주기
+      if (session.user && token.userId) {
+        (session.user as any).id = token.userId;
       }
       return session;
     },
