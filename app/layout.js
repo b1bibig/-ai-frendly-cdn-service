@@ -38,13 +38,7 @@ export default async function RootLayout({ children }) {
                     Dev console
                   </a>
                 )}
-                {isAuthenticated ? (
-                  <span className="pill">Signed in</span>
-                ) : (
-                  <a className="pill link" href="/login">
-                    Log in
-                  </a>
-                )}
+                {isAuthenticated && <span className="pill">Signed in</span>}
               </div>
             </header>
             <main className="app-main">{children}</main>
