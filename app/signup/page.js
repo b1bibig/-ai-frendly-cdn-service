@@ -8,7 +8,6 @@ export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [uidToken, setUidToken] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +22,7 @@ export default function SignupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, uidToken, inviteCode }),
+        body: JSON.stringify({ email, password, inviteCode }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
@@ -83,18 +82,6 @@ export default function SignupPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             minLength={8}
-            required
-          />
-        </label>
-
-        <label className="field">
-          <span>uidToken (4 chars)</span>
-          <input
-            type="text"
-            name="uidToken"
-            value={uidToken}
-            onChange={(e) => setUidToken(e.target.value)}
-            maxLength={4}
             required
           />
         </label>
