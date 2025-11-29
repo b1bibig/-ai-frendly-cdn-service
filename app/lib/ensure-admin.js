@@ -34,12 +34,17 @@ export async function ensureAdminAccount() {
 
       // Normalize any existing admin record to the lowercased email to avoid
       // duplicates created by earlier seeds that retained mixed-case values.
+      // Avoid rewriting when a normalized row already exists to prevent
+      // unique-index conflicts on the email column.
       await sql`
         UPDATE users
         SET email = ${normalizedEmail}
         WHERE id IN (
-          SELECT id FROM users
-          WHERE lower(email) = ${normalizedEmail}
+          SELECT id
+          FROM users
+          WHERE email <> ${normalizedEmail}
+            AND lower(email) = ${normalizedEmail}
+            AND NOT EXISTS (SELECT 1 FROM users WHERE email = ${normalizedEmail})
           ORDER BY id ASC
           LIMIT 1
         )
