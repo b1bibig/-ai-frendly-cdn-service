@@ -30,3 +30,24 @@ model Invite {
 
   @@map("invites")
 }
+
+model FileObject {
+  id           String   @id @default(cuid())
+  ownerId      String
+  rootUid      String
+
+  fullPath     String
+  relativePath String
+  parentPath   String
+  name         String
+
+  isDirectory  Boolean @default(false)
+  size         Int?
+  mimeType     String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([ownerId, rootUid, fullPath])
+  @@index([ownerId, rootUid, parentPath])
+}

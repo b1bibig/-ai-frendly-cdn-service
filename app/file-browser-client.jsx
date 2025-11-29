@@ -1,0 +1,295 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { signOut } from "next-auth/react";
+
+const formatBytes = (bytes) => {
+  if (bytes === null || bytes === undefined) return "-";
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${sizes[i]}`;
+};
+
+const iconFor = (isDirectory) => (isDirectory ? "📁" : "📄");
+
+const buildBreadcrumbs = (path) => {
+  if (path === "/") return [{ label: "root", path: "/" }];
+  const parts = path.replace(/^\//, "").split("/");
+  const crumbs = [{ label: "root", path: "/" }];
+  let current = "";
+  for (const part of parts) {
+    current = `${current}/${part}`;
+    crumbs.push({ label: part, path: current });
+  }
+  return crumbs;
+};
+
+export default function FileBrowserClient({ initialUidToken, userEmail }) {
+  const [currentDir, setCurrentDir] = useState("/");
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [selectedPath, setSelectedPath] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [fileToUpload, setFileToUpload] = useState(null);
+
+  const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
+
+  const fetchFiles = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/files?dir=${encodeURIComponent(currentDir)}`, {
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to load files");
+      }
+      const sorted = [...data].sort((a, b) => {
+        if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
+        return a.isDirectory ? -1 : 1;
+      });
+      setItems(sorted);
+    } catch (err) {
+      setError(err.message || "Failed to load files");
+    } finally {
+      setLoading(false);
+      setSelectedPath("");
+    }
+  }, [currentDir]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  const onUpload = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!fileToUpload) {
+        setStatus("업로드할 파일을 선택해 주세요.");
+        return;
+      }
+      setUploading(true);
+      setStatus("");
+      try {
+        const formData = new FormData();
+        formData.append("file", fileToUpload);
+        formData.append("currentDir", currentDir);
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.error || "업로드에 실패했습니다.");
+        }
+        setStatus("업로드 완료!");
+        setFileToUpload(null);
+        await fetchFiles();
+      } catch (err) {
+        setStatus(err.message || "업로드 중 오류가 발생했습니다.");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [currentDir, fetchFiles, fileToUpload]
+  );
+
+  const onMkdir = useCallback(async () => {
+    if (!newFolderName.trim()) {
+      setStatus("폴더 이름을 입력하세요.");
+      return;
+    }
+    setCreating(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/mkdir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newFolderName.trim(), parentPath: currentDir }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || "폴더 생성 실패");
+      }
+      setNewFolderName("");
+      setStatus("폴더를 만들었습니다.");
+      await fetchFiles();
+    } catch (err) {
+      setStatus(err.message || "폴더 생성 중 오류가 발생했습니다.");
+    } finally {
+      setCreating(false);
+    }
+  }, [currentDir, fetchFiles, newFolderName]);
+
+  const onDelete = useCallback(async () => {
+    if (!selectedPath) {
+      setStatus("삭제할 항목을 선택하세요.");
+      return;
+    }
+    setDeleting(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/files", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath: selectedPath }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || "삭제 실패");
+      }
+      setStatus("삭제 완료.");
+      await fetchFiles();
+    } catch (err) {
+      setStatus(err.message || "삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDeleting(false);
+    }
+  }, [fetchFiles, selectedPath]);
+
+  const onRowClick = useCallback((item) => {
+    setSelectedPath(item.fullPath);
+  }, []);
+
+  const onRowDoubleClick = useCallback((item) => {
+    if (item.isDirectory) {
+      setCurrentDir(item.fullPath);
+      setSelectedPath("");
+    }
+  }, []);
+
+  const onBreadcrumbClick = useCallback((path) => {
+    setCurrentDir(path);
+    setSelectedPath("");
+  }, []);
+
+  return (
+    <section className="stack gap-lg">
+      <div className="panel-heading">
+        <div>
+          <div className="eyebrow">Signed in</div>
+          <div className="uid">{userEmail || "Not logged in"}</div>
+          <div className="muted">rootUid: {initialUidToken || "Not set"}</div>
+        </div>
+        <div className="header-actions">
+          <a className="link" href="/signup">
+            회원가입
+          </a>
+          <button
+            className="pill"
+            type="button"
+            onClick={async () => {
+              await signOut({ callbackUrl: "/login" });
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <div className="browser-top">
+        <div className="breadcrumbs" aria-label="Breadcrumb">
+          {breadcrumbs.map((crumb, index) => (
+            <span key={crumb.path} className="breadcrumb">
+              <button
+                className="breadcrumb-button"
+                onClick={() => onBreadcrumbClick(crumb.path)}
+                disabled={crumb.path === currentDir}
+              >
+                {crumb.label}
+              </button>
+              {index < breadcrumbs.length - 1 && <span className="breadcrumb-sep">/</span>}
+            </span>
+          ))}
+        </div>
+        <div className="row gap-sm">
+          <label className="field compact">
+            <span>파일 선택</span>
+            <input
+              type="file"
+              onChange={(e) => setFileToUpload(e.target.files?.[0] || null)}
+            />
+          </label>
+          <button className="button" onClick={onUpload} disabled={uploading}>
+            {uploading ? "업로드 중..." : "업로드"}
+          </button>
+        </div>
+      </div>
+
+      <div className="row gap-md">
+        <label className="field compact">
+          <span>새 폴더</span>
+          <input
+            type="text"
+            placeholder="폴더 이름"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+          />
+        </label>
+        <button className="pill" onClick={onMkdir} disabled={creating}>
+          {creating ? "생성 중..." : "폴더 생성"}
+        </button>
+        <button className="pill" onClick={onDelete} disabled={deleting || !selectedPath}>
+          {deleting ? "삭제 중..." : "선택 삭제"}
+        </button>
+      </div>
+
+      <div className="file-list">
+        <div className="file-list-header">
+          <span className="muted">경로: {currentDir}</span>
+          {loading && <span className="muted">불러오는 중...</span>}
+        </div>
+        {error ? (
+          <div className="status error">{error}</div>
+        ) : items.length === 0 ? (
+          <div className="status">이 위치에 파일이나 폴더가 없습니다.</div>
+        ) : (
+          <div className="table-wrapper file-table-wrapper">
+            <table className="file-table">
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>유형</th>
+                  <th>크기</th>
+                  <th>업데이트</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const isSelected = selectedPath === item.fullPath;
+                  return (
+                    <tr
+                      key={item.id}
+                      className={isSelected ? "selected" : ""}
+                      onClick={() => onRowClick(item)}
+                      onDoubleClick={() => onRowDoubleClick(item)}
+                    >
+                      <td className="file-name">
+                        <span className="file-icon">{iconFor(item.isDirectory)}</span>
+                        <span className="file-label">{item.name}</span>
+                      </td>
+                      <td>{item.isDirectory ? "폴더" : item.mimeType || "파일"}</td>
+                      <td>{item.isDirectory ? "-" : formatBytes(item.size)}</td>
+                      <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {status && <p className="status">{status}</p>}
+    </section>
+  );
+}
