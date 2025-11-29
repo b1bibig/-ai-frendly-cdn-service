@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { sql } from "@/app/lib/db";
+import { authOptions } from "@/lib/auth";
 
 const ADMIN_HEADER = "x-admin-token";
 
@@ -12,10 +14,26 @@ function generateCode(length = 12) {
   return out;
 }
 
+function unauthorizedResponse() {
+  return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+}
+
+async function requireAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user || session.user.role !== "admin") {
+    return null;
+  }
+  return session;
+}
+
 export async function POST(request) {
-  const adminToken = request.headers.get(ADMIN_HEADER);
-  if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (request.headers.has(ADMIN_HEADER)) {
+    console.warn("Ignoring client-supplied admin token header");
+  }
+
+  const session = await requireAdmin();
+  if (!session) {
+    return unauthorizedResponse();
   }
 
   const body = await request.json().catch(() => ({}));
@@ -31,9 +49,13 @@ export async function POST(request) {
 }
 
 export async function GET(request) {
-  const adminToken = request.headers.get(ADMIN_HEADER);
-  if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (request.headers.has(ADMIN_HEADER)) {
+    console.warn("Ignoring client-supplied admin token header");
+  }
+
+  const session = await requireAdmin();
+  if (!session) {
+    return unauthorizedResponse();
   }
 
   const { searchParams } = new URL(request.url);
