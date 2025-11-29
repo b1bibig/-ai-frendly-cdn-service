@@ -46,8 +46,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      // 🔧 여기 1: 두 번째 인자(_req) 추가
-      async authorize(credentials, _req) {
+      async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -62,11 +61,18 @@ export const authOptions: NextAuthOptions = {
             password: credentials.password,
           }))
         ) {
-          return {
+          const adminUser = {
             id: "admin",
             email: adminConfig.adminEmail,
             role: "admin",
-          } as any;
+            uidToken: null,
+          } satisfies {
+            id: string;
+            email: string;
+            role: string;
+            uidToken?: string | null;
+          };
+          return adminUser;
         }
 
         // Prisma를 사용해서 유저 찾기
@@ -95,7 +101,12 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           uidToken: user.uidToken,
           role: "user",
-        } as any;
+        } satisfies {
+          id: string;
+          email: string;
+          uidToken?: string | null;
+          role?: string | null;
+        };
       },
     }),
   ],
@@ -106,20 +117,31 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       // 로그인 직후 user 객체를 JWT에 실어보내기
       if (user) {
-        token.userId = (user as any).id;
-        token.uidToken = (user as any).uidToken;
-        token.role = (user as any).role || token.role || "user";
-        token.sub = (user as any).id ?? token.sub;
-        token.email = (user as any).email ?? token.email;
+        const authUser = user as {
+          id?: string;
+          uidToken?: string | null;
+          role?: string | null;
+          email?: string | null;
+        };
+        token.userId = authUser.id ?? token.userId;
+        token.uidToken = authUser.uidToken ?? token.uidToken;
+        token.role = authUser.role || token.role || "user";
+        token.sub = authUser.id ?? token.sub;
+        token.email = authUser.email ?? token.email;
       }
       return token;
     },
     async session({ session, token }) {
       // 세션 객체에 userId 심어주기
       if (session.user && token.userId) {
-        (session.user as any).id = token.userId;
-        (session.user as any).uidToken = token.uidToken;
-        (session.user as any).role = token.role || "user";
+        const sessionUser = session.user as {
+          id?: string;
+          uidToken?: string | null;
+          role?: string | null;
+        };
+        sessionUser.id = token.userId;
+        sessionUser.uidToken = token.uidToken ?? sessionUser.uidToken;
+        sessionUser.role = token.role || sessionUser.role || "user";
       }
       return session;
     },
