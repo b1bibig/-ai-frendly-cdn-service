@@ -85,7 +85,7 @@ export async function POST(request) {
       ok: true,
       user: { id: user.id, email: user.email, uidToken: user.uid_token },
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { ok: false, error: "Failed to create account" },
       { status: 500 }

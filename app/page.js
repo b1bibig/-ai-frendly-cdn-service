@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth";
-import UploaderClient from "./uploader-client";
+import FileBrowserClient from "./file-browser-client";
 import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export default async function HomePage() {
 
   return (
     <div className="panel">
-      <UploaderClient
+      <FileBrowserClient
         initialUidToken={session?.user?.uidToken || ""}
         userEmail={session?.user?.email || ""}
       />
