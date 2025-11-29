@@ -44,6 +44,7 @@ export async function GET(request: Request) {
   try {
     const { ownerId, rootUid } = await requireSession();
     const dir = normalizeDirectoryPath(new URL(request.url).searchParams.get("dir"));
+    const cdnBase = getEnv("BUNNY_CDN_BASE_URL").replace(/\/+$/, "");
 
     const files = await prisma.fileObject.findMany({
       where: { ownerId, rootUid, parentPath: dir },
@@ -53,7 +54,15 @@ export async function GET(request: Request) {
       ],
     });
 
-    return NextResponse.json(files);
+    const filesWithCdn = files.map((file) => ({
+      ...file,
+      cdnUrl: `${cdnBase}/${rootUid}/${file.relativePath}`,
+      thumbnailUrl: file.isDirectory
+        ? null
+        : `${cdnBase}/${rootUid}_THNL/${file.relativePath}`,
+    }));
+
+    return NextResponse.json(filesWithCdn);
   } catch (error: unknown) {
     const message = getErrorMessage(error) || "Failed to load files";
     const status = message.startsWith("Unauthorized") ? 401 : 400;
