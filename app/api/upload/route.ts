@@ -7,6 +7,7 @@ import {
   ensureDirectoryChain,
   normalizeDirectoryPath,
 } from "@/app/lib/file-paths";
+import sharp from "sharp";
 
 const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
@@ -119,8 +120,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: getErrorMessage(error) }, { status: 500 });
   }
 
-  const uploadUrl = `https://${bunnyHost}/${bunnyZone}/${rootUid}${paths.fullPath}`;
+  const uploadBaseUrl = `https://${bunnyHost}/${bunnyZone}`;
+  const uploadUrl = `${uploadBaseUrl}/${rootUid}${paths.fullPath}`;
+  const thumbnailUploadUrl = `${uploadBaseUrl}/${rootUid}_THNL${paths.fullPath}`;
   const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+  let thumbnailBuffer: Buffer;
+  try {
+    thumbnailBuffer = await sharp(fileBuffer)
+      .resize({ width: 320 })
+      .webp()
+      .toBuffer();
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { ok: false, error: getErrorMessage(error) || "Failed to generate thumbnail" },
+      { status: 500 }
+    );
+  }
 
   const bunnyResponse = await fetch(uploadUrl, {
     method: "PUT",
@@ -128,16 +144,49 @@ export async function POST(request: Request) {
       AccessKey: bunnyKey,
       "Content-Type": "application/octet-stream",
     },
-    body: fileBuffer,
+    body: new Uint8Array(fileBuffer),
     cache: "no-store",
   });
 
-  if (!bunnyResponse.ok) {
-    const errorText = await bunnyResponse.text().catch(() => "");
+  const handleUploadError = async (
+    response: Response,
+    fallbackUrl?: string
+  ): Promise<NextResponse | null> => {
+    if (response.ok) return null;
+    const errorText = await response.text().catch(() => "");
+
+    if (fallbackUrl) {
+      await fetch(fallbackUrl, {
+        method: "DELETE",
+        headers: { AccessKey: bunnyKey },
+        cache: "no-store",
+      }).catch(() => {});
+    }
+
     return NextResponse.json(
-      { ok: false, error: `Bunny upload failed: ${errorText || bunnyResponse.statusText}` },
+      { ok: false, error: `Bunny upload failed: ${errorText || response.statusText}` },
       { status: 502 }
     );
+  };
+
+  const originalUploadError = await handleUploadError(bunnyResponse);
+  if (originalUploadError) {
+    return originalUploadError;
+  }
+
+  const thumbnailResponse = await fetch(thumbnailUploadUrl, {
+    method: "PUT",
+    headers: {
+      AccessKey: bunnyKey,
+      "Content-Type": "image/webp",
+    },
+    body: new Uint8Array(thumbnailBuffer),
+    cache: "no-store",
+  });
+
+  const thumbnailUploadError = await handleUploadError(thumbnailResponse, uploadUrl);
+  if (thumbnailUploadError) {
+    return thumbnailUploadError;
   }
 
   try {
@@ -152,11 +201,18 @@ export async function POST(request: Request) {
       },
     });
   } catch (error: unknown) {
-    await fetch(uploadUrl, {
-      method: "DELETE",
-      headers: { AccessKey: bunnyKey },
-      cache: "no-store",
-    }).catch(() => {});
+    await Promise.all([
+      fetch(uploadUrl, {
+        method: "DELETE",
+        headers: { AccessKey: bunnyKey },
+        cache: "no-store",
+      }),
+      fetch(thumbnailUploadUrl, {
+        method: "DELETE",
+        headers: { AccessKey: bunnyKey },
+        cache: "no-store",
+      }),
+    ]).catch(() => {});
     return NextResponse.json(
       { ok: false, error: getErrorMessage(error) || "Failed to save file record" },
       { status: 500 }
@@ -165,6 +221,12 @@ export async function POST(request: Request) {
 
   const normalizedCdnBase = cdnBase.replace(/\/+$/, "");
   const cdnUrl = `${normalizedCdnBase}/${rootUid}/${paths.relativePath}`;
+  const thumbnailCdnUrl = `${normalizedCdnBase}/${rootUid}_THNL/${paths.relativePath}`;
 
-  return NextResponse.json({ ok: true, cdnUrl, file: { ...paths, size: file.size, mimeType: file.type } });
+  return NextResponse.json({
+    ok: true,
+    cdnUrl,
+    thumbnailUrl: thumbnailCdnUrl,
+    file: { ...paths, size: file.size, mimeType: file.type },
+  });
 }
