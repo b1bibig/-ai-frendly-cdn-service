@@ -20,11 +20,11 @@ export async function ensureAdminAccount() {
   }
 
   ensurePromise = (async () => {
-    const email = process.env.ADMIN_EMAIL?.trim();
+    const normalizedEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
     const password = process.env.ADMIN_PASSWORD;
     const uidToken = process.env.ADMIN_UID_TOKEN?.trim();
 
-    if (!email || !password || !uidToken) {
+    if (!normalizedEmail || !password || !uidToken) {
       return;
     }
 
@@ -32,21 +32,39 @@ export async function ensureAdminAccount() {
       const passwordHash = await bcrypt.hash(password, 10);
       const hasIsAdmin = await columnExists("is_admin");
 
+      // Normalize any existing admin record to the lowercased email to avoid
+      // duplicates created by earlier seeds that retained mixed-case values.
+      // Avoid rewriting when a normalized row already exists to prevent
+      // unique-index conflicts on the email column.
+      await sql`
+        UPDATE users
+        SET email = ${normalizedEmail}
+        WHERE id IN (
+          SELECT id
+          FROM users
+          WHERE email <> ${normalizedEmail}
+            AND lower(email) = ${normalizedEmail}
+            AND NOT EXISTS (SELECT 1 FROM users WHERE email = ${normalizedEmail})
+          ORDER BY id ASC
+          LIMIT 1
+        )
+      `;
+
       if (hasIsAdmin) {
         await sql`
           INSERT INTO users (email, password_hash, uid_token, is_admin)
-          VALUES (${email}, ${passwordHash}, ${uidToken}, true)
+          VALUES (${normalizedEmail}, ${passwordHash}, ${uidToken}, true)
           ON CONFLICT (email) DO NOTHING
         `;
       } else {
         await sql`
           INSERT INTO users (email, password_hash, uid_token)
-          VALUES (${email}, ${passwordHash}, ${uidToken})
+          VALUES (${normalizedEmail}, ${passwordHash}, ${uidToken})
           ON CONFLICT (email) DO NOTHING
         `;
       }
 
-      console.log(`Admin account ensured: ${email}`);
+      console.log(`Admin account ensured: ${normalizedEmail}`);
     } catch (error) {
       console.warn("Failed to ensure admin account", error);
     }
