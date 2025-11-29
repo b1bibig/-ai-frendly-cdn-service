@@ -1,11 +1,11 @@
 :root {
-  --bg: #030712;
-  --fg: #e6ecff;
-  --panel: rgba(255, 255, 255, 0.04);
-  --border: rgba(255, 255, 255, 0.12);
-  --muted: rgba(230, 236, 255, 0.7);
-  --accent: #6cf3c1;
-  --accent-strong: #5cd4ad;
+  --bg: #ffffff;
+  --fg: #1f2933;
+  --panel: #ffffff;
+  --border: #e5e7eb;
+  --muted: #6b7280;
+  --accent: #ff7a00;
+  --accent-strong: #e56b00;
   --mono: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
@@ -16,9 +16,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at 20% 20%, rgba(108, 243, 193, 0.08), transparent 35%),
-    radial-gradient(circle at 80% 0%, rgba(109, 151, 255, 0.12), transparent 30%),
-    var(--bg);
+  background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans), "Pretendard", "Noto Sans KR", system-ui, -apple-system, sans-serif;
   letter-spacing: -0.01em;
@@ -30,11 +28,7 @@ body {
 }
 
 .bg-surface {
-  position: absolute;
-  inset: -30%;
-  background: conic-gradient(from 120deg, rgba(92, 212, 173, 0.08), rgba(74, 83, 121, 0.05), rgba(92, 212, 173, 0.08));
-  filter: blur(140px);
-  z-index: 0;
+  display: none;
 }
 
 .app-grid {
@@ -85,7 +79,7 @@ body {
 .pill {
   padding: 8px 12px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
+  background: #f8fafc;
   border-radius: 999px;
   font-size: 13px;
   color: var(--fg);
@@ -111,7 +105,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
 }
 
 .panel-heading {
@@ -171,7 +165,7 @@ body {
 .field input[type="file"],
 .field input[type="number"],
 .field input[type="datetime-local"] {
-  background: rgba(255, 255, 255, 0.03);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px 14px;
@@ -180,14 +174,14 @@ body {
 }
 
 .field input:focus {
-  outline: 2px solid rgba(108, 243, 193, 0.6);
-  border-color: rgba(108, 243, 193, 0.4);
+  outline: 2px solid rgba(255, 122, 0, 0.25);
+  border-color: rgba(255, 122, 0, 0.35);
 }
 
 .button {
-  background: linear-gradient(120deg, #6cf3c1, #7cb8ff);
-  color: #041026;
-  border: none;
+  background: var(--accent);
+  color: #ffffff;
+  border: 1px solid transparent;
   border-radius: 12px;
   padding: 14px;
   font-weight: 700;
@@ -197,7 +191,7 @@ body {
 
 .button.ghost {
   background: transparent;
-  color: var(--fg);
+  color: var(--accent);
   border: 1px solid var(--border);
   box-shadow: none;
 }
@@ -209,7 +203,8 @@ body {
 
 .button:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 30px rgba(108, 243, 193, 0.25);
+  box-shadow: 0 10px 30px rgba(255, 122, 0, 0.25);
+  background: var(--accent-strong);
 }
 
 .status {
@@ -219,7 +214,7 @@ body {
 }
 
 .result {
-  background: rgba(255, 255, 255, 0.03);
+  background: #f8fafc;
   border: 1px dashed var(--border);
   border-radius: 12px;
   padding: 16px;
@@ -287,24 +282,24 @@ body {
 
 .badge.active {
   color: var(--accent);
-  border-color: rgba(108, 243, 193, 0.4);
-  background: rgba(108, 243, 193, 0.08);
+  border-color: rgba(255, 122, 0, 0.35);
+  background: rgba(255, 122, 0, 0.08);
 }
 
 .badge.used {
-  color: #9fb4ff;
-  border-color: rgba(159, 180, 255, 0.4);
-  background: rgba(159, 180, 255, 0.06);
+  color: #5d6470;
+  border-color: rgba(107, 114, 128, 0.35);
+  background: rgba(107, 114, 128, 0.08);
 }
 
 .badge.expired {
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.35);
-  background: rgba(245, 158, 11, 0.06);
+  color: #c2410c;
+  border-color: rgba(194, 65, 12, 0.25);
+  background: rgba(255, 122, 0, 0.06);
 }
 
 .tiny-button {
-  background: rgba(255, 255, 255, 0.03);
+  background: #f8fafc;
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -314,7 +309,7 @@ body {
 
 .tiny-button:hover {
   color: var(--accent);
-  border-color: rgba(108, 243, 193, 0.4);
+  border-color: rgba(255, 122, 0, 0.35);
 }
 
 .uid {
@@ -368,7 +363,7 @@ body {
 
 .breadcrumb-button:disabled {
   color: var(--accent);
-  border-color: rgba(108, 243, 193, 0.4);
+  border-color: rgba(255, 122, 0, 0.35);
   cursor: default;
 }
 
@@ -377,7 +372,7 @@ body {
 }
 
 .file-list {
-  background: rgba(255, 255, 255, 0.02);
+  background: #f8fafc;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
@@ -418,11 +413,11 @@ body {
 }
 
 .file-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 122, 0, 0.04);
 }
 
 .file-table tr.selected {
-  background: rgba(108, 243, 193, 0.08);
+  background: rgba(255, 122, 0, 0.08);
 }
 
 .file-name {
