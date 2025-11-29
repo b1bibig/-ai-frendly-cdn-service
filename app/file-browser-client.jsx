@@ -43,6 +43,8 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
   const [showDetails, setShowDetails] = useState(false);
   const fileInputRef = useRef(null);
 
+  const isAuthenticated = Boolean(userEmail);
+
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
 
   const maskedEmail = useMemo(() => {
@@ -228,18 +230,29 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
           )}
         </div>
         <div className="header-actions">
-          <a className="link" href="/signup">
-            회원가입
-          </a>
-          <button
-            className="pill"
-            type="button"
-            onClick={async () => {
-              await signOut({ callbackUrl: "/login" });
-            }}
-          >
-            Logout
-          </button>
+          {isAuthenticated ? (
+            <>
+              {maskedEmail && <span className="muted">{maskedEmail}</span>}
+              <button
+                className="pill"
+                type="button"
+                onClick={async () => {
+                  await signOut({ callbackUrl: "/login" });
+                }}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <a className="link" href="/signup">
+                회원가입
+              </a>
+              <a className="link" href="/login">
+                로그인
+              </a>
+            </>
+          )}
         </div>
       </div>
 
