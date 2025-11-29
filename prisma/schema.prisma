@@ -12,7 +12,7 @@ model User {
   id           Int       @id @default(autoincrement())
   email        String    @unique
   passwordHash String    @map("password_hash")
-  uidToken     String    @map("uid_token")
+  uidToken     String    @unique @map("uid_token")
   createdAt    DateTime  @default(now()) @map("created_at")
   invites      Invite[]  @relation("UserInvites")
 

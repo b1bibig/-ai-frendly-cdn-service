@@ -3,13 +3,31 @@ import bcrypt from "bcryptjs";
 import { sql } from "@/app/lib/db";
 
 const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const TOKEN_REGEX = /^[A-Za-z0-9]{4}$/;
+const TOKEN_ALPHANUM = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+function generateUidToken() {
+  let token = "";
+  for (let i = 0; i < 4; i += 1) {
+    token += TOKEN_ALPHANUM[Math.floor(Math.random() * TOKEN_ALPHANUM.length)];
+  }
+  return token;
+}
+
+async function getUniqueUidToken() {
+  for (let i = 0; i < 10; i += 1) {
+    const token = generateUidToken();
+    const existingToken = await sql`
+      SELECT 1 FROM users WHERE uid_token = ${token} LIMIT 1
+    `;
+    if (!existingToken.rows?.[0]) return token;
+  }
+  throw new Error("Failed to generate unique uid token");
+}
 
 export async function POST(request) {
   const body = await request.json().catch(() => null);
   const email = body?.email?.toLowerCase().trim() ?? "";
   const password = body?.password ?? "";
-  const uidToken = body?.uidToken?.trim() ?? "";
   const inviteCode = body?.inviteCode?.trim() ?? "";
 
   if (!EMAIL_REGEX.test(email)) {
@@ -17,9 +35,6 @@ export async function POST(request) {
   }
   if (!password || password.length < 8) {
     return NextResponse.json({ ok: false, error: "Password must be at least 8 characters" }, { status: 400 });
-  }
-  if (!TOKEN_REGEX.test(uidToken)) {
-    return NextResponse.json({ ok: false, error: "uidToken must be 4 alphanumeric characters" }, { status: 400 });
   }
   if (!inviteCode) {
     return NextResponse.json({ ok: false, error: "Invite code is required" }, { status: 400 });
@@ -52,6 +67,7 @@ export async function POST(request) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   try {
+    const uidToken = await getUniqueUidToken();
     const createUser = await sql`
       INSERT INTO users (email, password_hash, uid_token)
       VALUES (${email}, ${passwordHash}, ${uidToken})
