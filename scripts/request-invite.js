@@ -63,7 +63,7 @@ async function main() {
   let parsed;
   try {
     parsed = JSON.parse(text);
-  } catch (error) {
+  } catch {
     parsed = text;
   }
 
