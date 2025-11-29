@@ -9,10 +9,11 @@ export async function GET() {
     // 그냥 DB에 한 번 쿼리 날려보기
     const now = await prisma.$queryRaw`SELECT NOW()`;
     return NextResponse.json({ ok: true, now });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("PRISMA DB ERROR:", err);
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { ok: false, error: String(err) },
+      { ok: false, error: message },
       { status: 500 },
     );
   }

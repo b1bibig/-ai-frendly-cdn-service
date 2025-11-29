@@ -8,8 +8,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata = {
-  title: "Bunny CDN Uploader",
-  description: "Upload images to Bunny Storage and serve from g.zcxv.xyz",
+  title: "Bunny File Browser",
+  description: "Upload and manage files in Bunny Storage from the web UI",
 };
 
 export default function RootLayout({ children }) {
@@ -22,8 +22,8 @@ export default function RootLayout({ children }) {
             <header className="app-header">
               <div className="brand">
                 <div className="eyebrow">Bunny CDN / Storage</div>
-                <h1>CDN Uploader</h1>
-                <p>Single repo for UI + API, ready for Vercel</p>
+                <h1>File Browser</h1>
+                <p>Explore and manage files with DB-backed indexing</p>
               </div>
               <div className="header-actions">
                 <span className="pill">App Router</span>
