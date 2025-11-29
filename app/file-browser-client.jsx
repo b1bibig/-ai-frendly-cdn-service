@@ -27,7 +27,7 @@ const buildBreadcrumbs = (path) => {
   return crumbs;
 };
 
-export default function FileBrowserClient({ initialUidToken, userEmail }) {
+export default function FileBrowserClient({ initialUidToken, userEmail, userRole }) {
   const [currentDir, setCurrentDir] = useState("/");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -39,8 +39,17 @@ export default function FileBrowserClient({ initialUidToken, userEmail }) {
   const [deleting, setDeleting] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [fileToUpload, setFileToUpload] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
+
+  const maskedEmail = useMemo(() => {
+    if (!userEmail) return "";
+    const [local, domain] = userEmail.split("@");
+    if (!domain) return `${local.slice(0, 3)}…`;
+    const shortenedLocal = local.length > 3 ? `${local.slice(0, 3)}…` : local;
+    return `${shortenedLocal}@${domain}`;
+  }, [userEmail]);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
@@ -176,9 +185,27 @@ export default function FileBrowserClient({ initialUidToken, userEmail }) {
     <section className="stack gap-lg">
       <div className="panel-heading">
         <div>
-          <div className="eyebrow">Signed in</div>
-          <div className="uid">{userEmail || "Not logged in"}</div>
-          <div className="muted">rootUid: {initialUidToken || "Not set"}</div>
+          <div className="eyebrow">Status</div>
+          <div className="uid" title={userEmail || undefined}>
+            {userEmail ? "Signed in" : "Session active"}
+          </div>
+          {maskedEmail && <div className="muted">{maskedEmail}</div>}
+          {userRole === "admin" && initialUidToken && (
+            <div className="row gap-sm">
+              <button
+                className="link"
+                type="button"
+                onClick={() => setShowDetails((current) => !current)}
+              >
+                {showDetails ? "Hide details" : "Show details"}
+              </button>
+              {showDetails && (
+                <span className="muted" title="rootUid token">
+                  rootUid: {initialUidToken}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="header-actions">
           <a className="link" href="/signup">
