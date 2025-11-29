@@ -341,9 +341,9 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
                             <img
                               src={item.thumbnailUrl}
                               alt={`${item.name} thumbnail`}
-                              width={48}
-                              height={48}
-                              style={{ objectFit: "cover", borderRadius: 6 }}
+                              width={120}
+                              height={120}
+                              className="thumbnail-image"
                             />
                           </a>
                         ) : (

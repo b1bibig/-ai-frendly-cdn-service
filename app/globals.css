@@ -404,6 +404,18 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.thumbnail-cell {
+  width: 140px;
+}
+
+.thumbnail-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
 .file-table tbody tr:hover {
   background: rgba(255, 255, 255, 0.03);
 }
