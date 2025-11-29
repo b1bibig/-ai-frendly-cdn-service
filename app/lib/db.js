@@ -1,12 +1,16 @@
-// app/lib/db.js
-// 이 파일은 Prisma 기반 DB 레이어로 교체될 예정이므로
-// 일단 빈 셸(shell)로 남겨둔다.
+import { PrismaClient } from "@prisma/client";
 
-// ❗ 더 이상 @vercel/postgres 쓰지 않음
-// import { sql } from "@vercel/postgres";
-// import { ensureAdminAccount } from "./ensure-admin";
+const globalForPrisma = globalThis;
 
-// ensureAdminAccount();  // 🔥 빌드 타임 실행 방지 (삭제 또는 주석)
+const prisma = globalForPrisma.prisma || new PrismaClient();
 
-// 필요하다면 Prisma 기반 함수들을 나중에 여기 정의하면 됨.
-export {};
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+export async function sql(strings, ...values) {
+  const rows = await prisma.$queryRaw(strings, ...values);
+  return { rows };
+}
+
+export { prisma };
