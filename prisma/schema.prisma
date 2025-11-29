@@ -8,8 +8,24 @@ generator client {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  uidToken     String    @map("uid_token")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  invites      Invite[]  @relation("UserInvites")
+
+  @@map("users")
+}
+
+model Invite {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique
+  expiresAt    DateTime? @map("expires_at")
+  usedByUserId Int?      @map("used_by_user_id")
+  usedAt       DateTime? @map("used_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  user         User?     @relation("UserInvites", fields: [usedByUserId], references: [id])
+
+  @@map("invites")
 }
