@@ -15,7 +15,8 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      // 🔧 여기 1: 두 번째 인자(_req) 추가
+      async authorize(credentials, _req) {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -32,7 +33,7 @@ export const authOptions: NextAuthOptions = {
 
         const isValid = await bcrypt.compare(
           credentials.password,
-          user.passwordHash
+          user.passwordHash // <- 이 필드명은 schema.prisma 기준으로 맞게 써둔 거겠지
         );
 
         if (!isValid) {
@@ -40,9 +41,9 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // NextAuth에 넘길 최소 유저 정보
+        // 🔧 여기 2: id를 string으로 변환해서 리턴
         return {
-          id: user.id,
+          id: String(user.id),
           email: user.email,
         };
       },
