@@ -1,5 +1,7 @@
 import "./globals.css";
 import { Space_Grotesk } from "next/font/google";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Providers from "./providers";
 
 const spaceGrotesk = Space_Grotesk({
@@ -12,11 +14,15 @@ export const metadata = {
   description: "Upload and manage files in Bunny Storage from the web UI",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const session = await getServerSession(authOptions);
+  const isAdmin = session?.user?.role === "admin";
+  const isAuthenticated = Boolean(session);
+
   return (
     <html lang="en">
       <body className={`${spaceGrotesk.variable} app-body`}>
-        <Providers>
+        <Providers session={session}>
           <div className="bg-surface" />
           <div className="app-grid">
             <header className="app-header">
@@ -27,12 +33,18 @@ export default function RootLayout({ children }) {
               </div>
               <div className="header-actions">
                 <span className="pill">App Router</span>
-                <a className="pill link" href="/dev">
-                  Dev console
-                </a>
-                <a className="pill link" href="/login">
-                  Set uidToken
-                </a>
+                {isAdmin && (
+                  <a className="pill link" href="/dev">
+                    Dev console
+                  </a>
+                )}
+                {isAuthenticated ? (
+                  <span className="pill">Signed in</span>
+                ) : (
+                  <a className="pill link" href="/login">
+                    Log in
+                  </a>
+                )}
               </div>
             </header>
             <main className="app-main">{children}</main>
