@@ -32,6 +32,19 @@ export async function ensureAdminAccount() {
       const passwordHash = await bcrypt.hash(password, 10);
       const hasIsAdmin = await columnExists("is_admin");
 
+      // Normalize any existing admin record to the lowercased email to avoid
+      // duplicates created by earlier seeds that retained mixed-case values.
+      await sql`
+        UPDATE users
+        SET email = ${email}
+        WHERE id IN (
+          SELECT id FROM users
+          WHERE lower(email) = ${email}
+          ORDER BY id ASC
+          LIMIT 1
+        )
+      `;
+
       if (hasIsAdmin) {
         await sql`
           INSERT INTO users (email, password_hash, uid_token, is_admin)
