@@ -55,6 +55,27 @@ export default async function RootLayout({ children }) {
               </a>
             </footer>
           </div>
+          <div className="legal-floating-links">
+            <a className="legal-floating-button" href="/terms" target="_blank" rel="noreferrer">
+              이용약관
+            </a>
+            <a
+              className="legal-floating-button"
+              href="/privacy"
+              target="_blank"
+              rel="noreferrer"
+            >
+              개인정보 처리방침
+            </a>
+            <a
+              className="legal-floating-button"
+              href="/content-policy"
+              target="_blank"
+              rel="noreferrer"
+            >
+              콘텐츠 및 이용정책
+            </a>
+          </div>
         </Providers>
       </body>
     </html>
