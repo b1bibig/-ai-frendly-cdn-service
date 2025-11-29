@@ -4,15 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "vercel-build": "prisma migrate deploy && prisma generate && next build",
+    "build": "prisma generate && next build",
+    "vercel-build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "request:invite": "node scripts/request-invite.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "5.22.0",
     "bcryptjs": "^2.4.3",
     "next": "16.0.3",
     "next-auth": "^4.24.11",
@@ -26,7 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
-    "prisma": "^5.22.0",
+    "prisma": "5.22.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
