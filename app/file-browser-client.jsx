@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 
 const formatBytes = (bytes) => {
@@ -38,8 +38,10 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [fileToUpload, setFileToUpload] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadStatuses, setUploadStatuses] = useState([]);
   const [showDetails, setShowDetails] = useState(false);
+  const fileInputRef = useRef(null);
 
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
 
@@ -82,34 +84,52 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
   const onUpload = useCallback(
     async (event) => {
       event.preventDefault();
-      if (!fileToUpload) {
+      if (!selectedFiles.length) {
         setStatus("업로드할 파일을 선택해 주세요.");
         return;
       }
+
+      const updateStatus = (fileName, state) => {
+        setUploadStatuses((prev) =>
+          prev.map((entry) =>
+            entry.name === fileName ? { ...entry, status: state } : entry
+          )
+        );
+      };
+
       setUploading(true);
       setStatus("");
-      try {
-        const formData = new FormData();
-        formData.append("file", fileToUpload);
-        formData.append("currentDir", currentDir);
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json();
-        if (!response.ok || !data?.ok) {
-          throw new Error(data?.error || "업로드에 실패했습니다.");
+      let hadFailure = false;
+      for (const file of selectedFiles) {
+        try {
+          updateStatus(file.name, "업로드 중...");
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("currentDir", currentDir);
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          if (!response.ok || !data?.ok) {
+            throw new Error(data?.error || "업로드에 실패했습니다.");
+          }
+          updateStatus(file.name, "완료");
+        } catch (err) {
+          hadFailure = true;
+          updateStatus(file.name, err.message || "업로드 실패");
         }
-        setStatus("업로드 완료!");
-        setFileToUpload(null);
-        await fetchFiles();
-      } catch (err) {
-        setStatus(err.message || "업로드 중 오류가 발생했습니다.");
-      } finally {
-        setUploading(false);
       }
+
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setStatus(hadFailure ? "업로드를 완료했지만 일부 항목이 실패했습니다." : "업로드 완료!");
+      await fetchFiles();
+      setUploading(false);
     },
-    [currentDir, fetchFiles, fileToUpload]
+    [currentDir, fetchFiles, selectedFiles]
   );
 
   const onMkdir = useCallback(async () => {
@@ -242,8 +262,16 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
           <label className="field compact">
             <span>파일 선택</span>
             <input
+              ref={fileInputRef}
               type="file"
-              onChange={(e) => setFileToUpload(e.target.files?.[0] || null)}
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setSelectedFiles(files);
+                setUploadStatuses(
+                  files.map((file) => ({ name: file.name, status: "대기 중" }))
+                );
+              }}
             />
           </label>
           <button className="button" onClick={onUpload} disabled={uploading}>
@@ -316,7 +344,21 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
         )}
       </div>
 
-      {status && <p className="status">{status}</p>}
+      {(uploadStatuses.length > 0 || status) && (
+        <div className="status">
+          {uploadStatuses.length > 0 && (
+            <ul className="status-list">
+              {uploadStatuses.map((item) => (
+                <li key={item.name} className="row gap-sm">
+                  <span className="file-label">{item.name}</span>
+                  <span className="muted">{item.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {status && <p>{status}</p>}
+        </div>
+      )}
     </section>
   );
 }
