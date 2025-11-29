@@ -228,9 +228,7 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
           )}
         </div>
         <div className="header-actions">
-          <a className="link" href="/signup">
-            회원가입
-          </a>
+          {maskedEmail && <span className="muted">{maskedEmail}</span>}
           <button
             className="pill"
             type="button"
