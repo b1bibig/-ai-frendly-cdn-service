@@ -27,7 +27,7 @@ const buildBreadcrumbs = (path) => {
   return crumbs;
 };
 
-export default function FileBrowserClient({ initialUidToken, userEmail, userRole }) {
+export default function FileBrowserClient({ userEmail }) {
   const [currentDir, setCurrentDir] = useState("/");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -40,18 +40,27 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadStatuses, setUploadStatuses] = useState([]);
-  const [showDetails, setShowDetails] = useState(false);
   const fileInputRef = useRef(null);
 
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
 
-  const maskedEmail = useMemo(() => {
-    if (!userEmail) return "";
-    const [local, domain] = userEmail.split("@");
-    if (!domain) return `${local.slice(0, 3)}…`;
-    const shortenedLocal = local.length > 3 ? `${local.slice(0, 3)}…` : local;
-    return `${shortenedLocal}@${domain}`;
-  }, [userEmail]);
+  const visibleItems = useMemo(() => {
+    if (items.length === 0 && currentDir === "/") {
+      return [
+        {
+          id: "__root-placeholder__",
+          name: "기본 폴더",
+          isDirectory: true,
+          fullPath: "/",
+          size: null,
+          mimeType: "폴더",
+          updatedAt: null,
+          placeholder: true,
+        },
+      ];
+    }
+    return items;
+  }, [currentDir, items]);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
@@ -186,10 +195,12 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
   }, [fetchFiles, selectedPath]);
 
   const onRowClick = useCallback((item) => {
+    if (item.placeholder) return;
     setSelectedPath(item.fullPath);
   }, []);
 
   const onRowDoubleClick = useCallback((item) => {
+    if (item.placeholder) return;
     if (item.isDirectory) {
       setCurrentDir(item.fullPath);
       setSelectedPath("");
@@ -201,186 +212,216 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
     setSelectedPath("");
   }, []);
 
+  const onCopyCdn = useCallback(async (cdnUrl) => {
+    if (!cdnUrl) return;
+    try {
+      await navigator.clipboard.writeText(cdnUrl);
+      setStatus("CDN 링크를 복사했습니다.");
+    } catch (err) {
+      setStatus("클립보드 복사에 실패했습니다. 수동으로 복사해 주세요.");
+    }
+  }, []);
+
+  const onSettings = useCallback(() => {
+    setStatus("");
+  }, []);
+
   return (
-    <section className="stack gap-lg">
-      <div className="panel-heading">
-        <div>
-          <div className="eyebrow">Status</div>
-          <div className="uid" title={userEmail || undefined}>
-            {userEmail ? "Signed in" : "Session active"}
-          </div>
-          {maskedEmail && <div className="muted">{maskedEmail}</div>}
-          {userRole === "admin" && initialUidToken && (
-            <div className="row gap-sm">
-              <button
-                className="link"
-                type="button"
-                onClick={() => setShowDetails((current) => !current)}
-              >
-                {showDetails ? "Hide details" : "Show details"}
-              </button>
-              {showDetails && (
-                <span className="muted" title="rootUid token">
-                  rootUid: {initialUidToken}
-                </span>
-              )}
+    <section className="browser-shell stack gap-lg">
+      <div className="browser-header">
+        <div className="browser-account">
+          <div className="account-title">Signed in</div>
+          {userEmail && (
+            <div className="account-email" title={userEmail}>
+              {userEmail}
             </div>
           )}
         </div>
         <div className="header-actions">
-          <a className="link" href="/signup">
-            회원가입
-          </a>
+          <button className="neutral-button" type="button" onClick={onSettings}>
+            설정
+          </button>
           <button
-            className="pill"
+            className="neutral-button"
             type="button"
             onClick={async () => {
               await signOut({ callbackUrl: "/login" });
             }}
           >
-            Logout
+            로그아웃
           </button>
         </div>
       </div>
 
-      <div className="browser-top">
-        <div className="breadcrumbs" aria-label="Breadcrumb">
-          {breadcrumbs.map((crumb, index) => (
-            <span key={crumb.path} className="breadcrumb">
+      <div className="browser-layout">
+        <aside className="browser-sidebar">
+          <div className="sidebar-logo">zcxv</div>
+          <div className="sidebar-divider" />
+          <div className="sidebar-paths" aria-label="Breadcrumb">
+            {breadcrumbs.map((crumb) => (
               <button
-                className="breadcrumb-button"
+                key={crumb.path}
+                className={`sidebar-path ${crumb.path === currentDir ? "active" : ""}`}
                 onClick={() => onBreadcrumbClick(crumb.path)}
+                type="button"
                 disabled={crumb.path === currentDir}
               >
                 {crumb.label}
               </button>
-              {index < breadcrumbs.length - 1 && <span className="breadcrumb-sep">/</span>}
-            </span>
-          ))}
-        </div>
-        <div className="row gap-sm">
-          <label className="field compact">
-            <span>파일 선택</span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                setSelectedFiles(files);
-                setUploadStatuses(
-                  files.map((file) => ({ name: file.name, status: "대기 중" }))
-                );
-              }}
-            />
-          </label>
-          <button className="button" onClick={onUpload} disabled={uploading}>
-            {uploading ? "업로드 중..." : "업로드"}
-          </button>
-        </div>
-      </div>
-
-      <div className="row gap-md">
-        <label className="field compact">
-          <span>새 폴더</span>
-          <input
-            type="text"
-            placeholder="폴더 이름"
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-          />
-        </label>
-        <button className="pill" onClick={onMkdir} disabled={creating}>
-          {creating ? "생성 중..." : "폴더 생성"}
-        </button>
-        <button className="pill" onClick={onDelete} disabled={deleting || !selectedPath}>
-          {deleting ? "삭제 중..." : "선택 삭제"}
-        </button>
-      </div>
-
-      <div className="file-list">
-        <div className="file-list-header">
-          <span className="muted">경로: {currentDir}</span>
-          {loading && <span className="muted">불러오는 중...</span>}
-        </div>
-        {error ? (
-          <div className="status error">{error}</div>
-        ) : items.length === 0 ? (
-          <div className="status">이 위치에 파일이나 폴더가 없습니다.</div>
-        ) : (
-          <div className="table-wrapper file-table-wrapper">
-            <table className="file-table">
-              <thead>
-                <tr>
-                  <th>썸네일</th>
-                  <th>이름</th>
-                  <th>유형</th>
-                  <th>크기</th>
-                  <th>업데이트</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const isSelected = selectedPath === item.fullPath;
-                  return (
-                    <tr
-                      key={item.id}
-                      className={isSelected ? "selected" : ""}
-                      onClick={() => onRowClick(item)}
-                      onDoubleClick={() => onRowDoubleClick(item)}
-                    >
-                      <td className="thumbnail-cell">
-                        {!item.isDirectory && item.thumbnailUrl ? (
-                          <a
-                            href={item.cdnUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="원본 보기"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={item.thumbnailUrl}
-                              alt={`${item.name} thumbnail`}
-                              width={120}
-                              height={120}
-                              className="thumbnail-image"
-                            />
-                          </a>
-                        ) : (
-                          <span className="muted">-</span>
-                        )}
-                      </td>
-                      <td className="file-name">
-                        <span className="file-icon">{iconFor(item.isDirectory)}</span>
-                        <span className="file-label">{item.name}</span>
-                      </td>
-                      <td>{item.isDirectory ? "폴더" : item.mimeType || "파일"}</td>
-                      <td>{item.isDirectory ? "-" : formatBytes(item.size)}</td>
-                      <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ""}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            ))}
           </div>
-        )}
-      </div>
+        </aside>
 
-      {(uploadStatuses.length > 0 || status) && (
-        <div className="status">
-          {uploadStatuses.length > 0 && (
-            <ul className="status-list">
-              {uploadStatuses.map((item) => (
-                <li key={item.name} className="row gap-sm">
-                  <span className="file-label">{item.name}</span>
-                  <span className="muted">{item.status}</span>
-                </li>
-              ))}
-            </ul>
+        <div className="browser-main stack gap-lg">
+          <div className="browser-top">
+            <div className="row gap-sm">
+              <label className="field compact">
+                <span>파일 선택</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setSelectedFiles(files);
+                    setUploadStatuses(
+                      files.map((file) => ({ name: file.name, status: "대기 중" }))
+                    );
+                  }}
+                />
+              </label>
+              <button className="button" onClick={onUpload} disabled={uploading}>
+                {uploading ? "업로드 중..." : "업로드"}
+              </button>
+            </div>
+            <div className="row gap-md">
+              <label className="field compact">
+                <span>새 폴더</span>
+                <input
+                  type="text"
+                  placeholder="폴더 이름"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                />
+              </label>
+              <button className="pill" onClick={onMkdir} disabled={creating}>
+                {creating ? "생성 중..." : "폴더 생성"}
+              </button>
+              <button className="pill" onClick={onDelete} disabled={deleting || !selectedPath}>
+                {deleting ? "삭제 중..." : "선택 삭제"}
+              </button>
+            </div>
+          </div>
+
+          <div className="file-list">
+            <div className="file-list-header">
+              <span className="muted">경로: {currentDir}</span>
+              {loading && <span className="muted">불러오는 중...</span>}
+            </div>
+            {error ? (
+              <div className="status error">{error}</div>
+            ) : visibleItems.length === 0 ? (
+              <div className="status">이 위치에 파일이나 폴더가 없습니다.</div>
+            ) : (
+              <div className="table-wrapper file-table-wrapper">
+                <table className="file-table">
+                  <thead>
+                    <tr>
+                      <th>썸네일</th>
+                      <th>이름</th>
+                      <th>유형</th>
+                      <th>크기</th>
+                      <th>업데이트</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleItems.map((item) => {
+                      const isSelected =
+                        !item.placeholder && selectedPath === item.fullPath;
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`${isSelected ? "selected" : ""} ${
+                            item.placeholder ? "placeholder-row" : ""
+                          }`}
+                          onClick={() => onRowClick(item)}
+                          onDoubleClick={() => onRowDoubleClick(item)}
+                        >
+                          <td className="thumbnail-cell">
+                            {!item.isDirectory && item.thumbnailUrl ? (
+                              <a
+                                href={item.cdnUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="원본 보기"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={item.thumbnailUrl}
+                                  alt={`${item.name} thumbnail`}
+                                  width={120}
+                                  height={120}
+                                  className="thumbnail-image"
+                                />
+                              </a>
+                            ) : (
+                              <span className="muted">-</span>
+                            )}
+                          </td>
+                          <td className="file-name">
+                            <div className="file-name-main">
+                              <span className="file-icon">{iconFor(item.isDirectory)}</span>
+                              <span className="file-label">{item.name}</span>
+                            </div>
+                            {!item.isDirectory && item.cdnUrl && (
+                              <div className="cdn-row">
+                                <a
+                                  href={item.cdnUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="cdn-link"
+                                >
+                                  {item.cdnUrl}
+                                </a>
+                                <button
+                                  className="copy-button"
+                                  type="button"
+                                  onClick={() => onCopyCdn(item.cdnUrl)}
+                                >
+                                  복사
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td>{item.isDirectory ? "폴더" : item.mimeType || "파일"}</td>
+                          <td>{item.isDirectory ? "-" : formatBytes(item.size)}</td>
+                          <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ""}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {(uploadStatuses.length > 0 || status) && (
+            <div className="status">
+              {uploadStatuses.length > 0 && (
+                <ul className="status-list">
+                  {uploadStatuses.map((item) => (
+                    <li key={item.name} className="row gap-sm">
+                      <span className="file-label">{item.name}</span>
+                      <span className="muted">{item.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {status && <p>{status}</p>}
+            </div>
           )}
-          {status && <p>{status}</p>}
         </div>
-      )}
+      </div>
     </section>
   );
 }
