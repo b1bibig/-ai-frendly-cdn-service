@@ -312,6 +312,7 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
             <table className="file-table">
               <thead>
                 <tr>
+                  <th>썸네일</th>
                   <th>이름</th>
                   <th>유형</th>
                   <th>크기</th>
@@ -328,6 +329,27 @@ export default function FileBrowserClient({ initialUidToken, userEmail, userRole
                       onClick={() => onRowClick(item)}
                       onDoubleClick={() => onRowDoubleClick(item)}
                     >
+                      <td className="thumbnail-cell">
+                        {!item.isDirectory && item.thumbnailUrl ? (
+                          <a
+                            href={item.cdnUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="원본 보기"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.thumbnailUrl}
+                              alt={`${item.name} thumbnail`}
+                              width={120}
+                              height={120}
+                              className="thumbnail-image"
+                            />
+                          </a>
+                        ) : (
+                          <span className="muted">-</span>
+                        )}
+                      </td>
                       <td className="file-name">
                         <span className="file-icon">{iconFor(item.isDirectory)}</span>
                         <span className="file-label">{item.name}</span>

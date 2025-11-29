@@ -40,7 +40,8 @@ body {
 .app-grid {
   position: relative;
   z-index: 1;
-  max-width: 960px;
+  width: min(85vw, 1400px);
+  max-width: 1400px;
   margin: 0 auto;
   padding: 48px 24px 64px;
   display: grid;
@@ -402,6 +403,18 @@ body {
   padding: 10px 8px;
   text-align: left;
   border-bottom: 1px solid var(--border);
+}
+
+.thumbnail-cell {
+  width: 140px;
+}
+
+.thumbnail-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
 }
 
 .file-table tbody tr:hover {
