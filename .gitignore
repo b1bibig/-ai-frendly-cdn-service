@@ -44,3 +44,5 @@ node_modules
 .next
 .env
 .env.local
+
+/lib/generated/prisma
