@@ -689,28 +689,52 @@ body {
 
 .billing-gauge {
   width: 260px;
-  height: 22px;
+  height: 20px;
   border-radius: 12px;
-  background: #222;
   padding: 4px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   cursor: default;
-  transition: filter 0.2s ease, box-shadow 0.2s ease;
+  transition: filter 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
 }
 
 .billing-gauge.is-disabled {
   opacity: 0.7;
-  background: #3a3a3a;
+}
+
+.billing-gauge.is-pinned {
+  transform: translateY(-1px);
+}
+
+.billing-gauge-shell {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(245, 245, 245, 0.86));
+  border-radius: 999px;
+  padding: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.billing-gauge.status-low .billing-gauge-shell {
+  background: linear-gradient(135deg, rgba(255, 249, 214, 0.94), rgba(248, 242, 205, 0.9));
+}
+
+.billing-gauge.status-critical .billing-gauge-shell,
+.billing-gauge.status-overdraft .billing-gauge-shell {
+  background: linear-gradient(135deg, rgba(255, 234, 224, 0.94), rgba(255, 226, 214, 0.92));
+}
+
+.billing-gauge.status-suspended .billing-gauge-shell {
+  background: linear-gradient(135deg, rgba(240, 240, 240, 0.9), rgba(232, 232, 232, 0.9));
 }
 
 .billing-gauge-bar {
   width: 100%;
-  height: 14px;
+  height: 12px;
   display: flex;
   overflow: hidden;
   border-radius: 999px;
-  background: #2f2f2f;
+  background: #ededed;
   position: relative;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .billing-segment.storage {

@@ -33,6 +33,7 @@ function clampPercent(value: number) {
 export function BillingGauge() {
   const [data, setData] = useState<BillingSummaryResponse | null>(null);
   const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const hoverTimer = useRef<NodeJS.Timeout | null>(null);
   const leaveTimer = useRef<NodeJS.Timeout | null>(null);
@@ -63,6 +64,11 @@ export function BillingGauge() {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     if (leaveTimer.current) clearTimeout(leaveTimer.current);
 
+    if (pinned) {
+      setShowTooltip(true);
+      return () => undefined;
+    }
+
     if (hovered) {
       hoverTimer.current = setTimeout(() => setShowTooltip(true), 500);
     } else {
@@ -73,7 +79,7 @@ export function BillingGauge() {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
       if (leaveTimer.current) clearTimeout(leaveTimer.current);
     };
-  }, [hovered]);
+  }, [hovered, pinned]);
 
   const { storageWidth, cdnWidth, balanceWidth, disabled, status } = useMemo(() => {
     if (!data || data.wallet.lifetimeChargedUsd <= 0) {
@@ -125,18 +131,33 @@ export function BillingGauge() {
 
   const statusClass = `billing-gauge status-${status?.toLowerCase?.() ?? "active"}`;
 
+  const handleClick = () => {
+    setPinned((prev) => {
+      const next = !prev;
+      if (!next) {
+        setShowTooltip(false);
+      } else {
+        setShowTooltip(true);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="billing-gauge-wrapper">
       <div
-        className={`${statusClass} ${disabled ? "is-disabled" : ""}`}
+        className={`${statusClass} ${disabled ? "is-disabled" : ""} ${pinned ? "is-pinned" : ""}`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onClick={handleClick}
       >
-        <div className="billing-gauge-bar">
-          <div className="billing-segment storage" style={{ width: `${storageWidth}%` }} />
-          <div className="billing-segment cdn" style={{ width: `${cdnWidth}%` }} />
-          <div className="billing-segment balance" style={{ width: `${balanceWidth}%` }} />
-          {status === "SUSPENDED" && <div className="billing-suspended-icon">!</div>}
+        <div className="billing-gauge-shell">
+          <div className="billing-gauge-bar">
+            <div className="billing-segment storage" style={{ width: `${storageWidth}%` }} />
+            <div className="billing-segment cdn" style={{ width: `${cdnWidth}%` }} />
+            <div className="billing-segment balance" style={{ width: `${balanceWidth}%` }} />
+            {status === "SUSPENDED" && <div className="billing-suspended-icon">!</div>}
+          </div>
         </div>
         {disabled && <span className="billing-inactive-label">비활성 상태</span>}
       </div>
