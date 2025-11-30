@@ -279,6 +279,7 @@ export default function FileBrowserClient({ userEmail }) {
 
   const setMoveStartFromItem = useCallback(
     (item) => {
+      if (item.isDirectory) return;
       const paths = selectedPaths.length ? selectedPaths : [item.fullPath];
       setMoveAnchor({ paths, from: currentDir });
       setStatus("이동 시작을 설정했습니다. 대상 폴더를 더블클릭하세요.");
@@ -300,7 +301,7 @@ export default function FileBrowserClient({ userEmail }) {
         return;
       }
 
-      if (!selectedPaths.length && item.isDirectory) {
+      if (!moveAnchor && item.isDirectory) {
         setCurrentDir(item.fullPath);
         setSelectedPaths([]);
         return;
@@ -308,7 +309,7 @@ export default function FileBrowserClient({ userEmail }) {
 
       setMoveStartFromItem(item);
     },
-    [clearMoveAnchor, moveAnchor, movePaths, selectedPaths.length, setMoveStartFromItem]
+    [clearMoveAnchor, moveAnchor, movePaths, setMoveStartFromItem]
   );
 
   const onBreadcrumbClick = useCallback(
