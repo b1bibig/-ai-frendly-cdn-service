@@ -110,6 +110,7 @@ export async function POST(request: Request) {
   let bunnyZone: string;
   let bunnyKey: string;
   let cdnBase: string;
+  const thumbnailPrefix = `${rootUid}_THNL`;
 
   try {
     bunnyHost = getEnv("BUNNY_STORAGE_HOST");
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
 
   const uploadBaseUrl = `https://${bunnyHost}/${bunnyZone}`;
   const uploadUrl = `${uploadBaseUrl}/${rootUid}${paths.fullPath}`;
-  const thumbnailUploadUrl = `${uploadBaseUrl}/${rootUid}_THNL${paths.fullPath}`;
+  const thumbnailUploadUrl = `${uploadBaseUrl}/${thumbnailPrefix}${paths.fullPath}`;
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
   let thumbnailBuffer: Buffer;
@@ -221,7 +222,7 @@ export async function POST(request: Request) {
 
   const normalizedCdnBase = cdnBase.replace(/\/+$/, "");
   const cdnUrl = `${normalizedCdnBase}/${rootUid}/${paths.relativePath}`;
-  const thumbnailCdnUrl = `${normalizedCdnBase}/${rootUid}_THNL/${paths.relativePath}`;
+  const thumbnailCdnUrl = `${normalizedCdnBase}/${thumbnailPrefix}/${paths.relativePath}`;
 
   return NextResponse.json({
     ok: true,

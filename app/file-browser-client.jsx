@@ -15,6 +15,28 @@ const formatBytes = (bytes) => {
 
 const iconFor = (isDirectory) => (isDirectory ? "📁" : "📄");
 
+const ensureThumbnailUrl = (item) => {
+  if (item?.isDirectory) return null;
+
+  const existing = item?.thumbnailUrl;
+  if (existing && existing.includes("_THNL/")) return existing;
+
+  const fallback = existing || item?.cdnUrl;
+  if (!fallback) return existing || null;
+
+  try {
+    const parsed = new URL(fallback);
+    const [uid, ...rest] = parsed.pathname.replace(/^\/+/, "").split("/");
+
+    if (!uid || uid.endsWith("_THNL")) return existing || fallback;
+
+    parsed.pathname = `/${[`${uid}_THNL`, ...rest].join("/")}`;
+    return parsed.toString();
+  } catch {
+    return existing || null;
+  }
+};
+
 const buildBreadcrumbs = (path) => {
   if (path === "/") return [{ label: "root", path: "/" }];
   const parts = path.replace(/^\//, "").split("/");
@@ -82,7 +104,11 @@ export default function FileBrowserClient({ userEmail }) {
       if (!response.ok) {
         throw new Error(data?.error || "Failed to load files");
       }
-      const sorted = [...data].sort((a, b) => {
+      const normalized = data.map((item) => ({
+        ...item,
+        thumbnailUrl: ensureThumbnailUrl(item),
+      }));
+      const sorted = [...normalized].sort((a, b) => {
         if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
         return a.isDirectory ? -1 : 1;
       });
