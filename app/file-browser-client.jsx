@@ -48,6 +48,9 @@ export default function FileBrowserClient({ userEmail }) {
     dragPathsRef.current = [];
   }, []);
 
+  const clearMoveAnchor = useCallback(() => setMoveAnchor(null), []);
+  const clearRangeAnchor = useCallback(() => setRangeAnchorIndex(null), []);
+
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
 
   const visibleItems = useMemo(() => {
@@ -232,9 +235,6 @@ export default function FileBrowserClient({ userEmail }) {
       return [item.fullPath];
     });
   }, []);
-
-  const clearMoveAnchor = useCallback(() => setMoveAnchor(null), []);
-  const clearRangeAnchor = useCallback(() => setRangeAnchorIndex(null), []);
 
   const movePaths = useCallback(
     async (paths, destinationDir) => {
