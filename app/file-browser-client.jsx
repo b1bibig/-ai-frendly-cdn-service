@@ -33,14 +33,19 @@ export default function FileBrowserClient({ userEmail }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const [selectedPath, setSelectedPath] = useState("");
+  const [selectedPaths, setSelectedPaths] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadStatuses, setUploadStatuses] = useState([]);
+  const [moveAnchor, setMoveAnchor] = useState(null);
   const fileInputRef = useRef(null);
+  const dragPathsRef = useRef([]);
+  const clearDragPaths = useCallback(() => {
+    dragPathsRef.current = [];
+  }, []);
 
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
 
@@ -82,7 +87,7 @@ export default function FileBrowserClient({ userEmail }) {
       setError(err.message || "Failed to load files");
     } finally {
       setLoading(false);
-      setSelectedPath("");
+      setSelectedPaths([]);
     }
   }, [currentDir]);
 
@@ -168,56 +173,114 @@ export default function FileBrowserClient({ userEmail }) {
     }
   }, [currentDir, fetchFiles, newFolderName]);
 
-  const onDelete = useCallback(async () => {
-    if (!selectedPath) {
-      setStatus("삭제할 항목을 선택하세요.");
-      return;
-    }
-    setDeleting(true);
-    setStatus("");
-    try {
-      const response = await fetch("/api/files", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: selectedPath }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.error || "삭제 실패");
+  const deletePaths = useCallback(
+    async (paths) => {
+      if (!paths?.length) {
+        setStatus("삭제할 항목을 선택하세요.");
+        return;
       }
-      setStatus("삭제 완료.");
-      await fetchFiles();
-    } catch (err) {
-      setStatus(err.message || "삭제 중 오류가 발생했습니다.");
-    } finally {
-      setDeleting(false);
-    }
-  }, [fetchFiles, selectedPath]);
+      setDeleting(true);
+      setStatus("");
+      const failures = [];
+      try {
+        for (const path of paths) {
+          try {
+            const response = await fetch("/api/files", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ filePath: path }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data?.ok) {
+              throw new Error(data?.error || "삭제 실패");
+            }
+          } catch (err) {
+            failures.push(`${path}: ${err.message || "삭제 실패"}`);
+          }
+        }
+        setSelectedPaths([]);
+        await fetchFiles();
+        if (failures.length > 0) {
+          setStatus(`일부 항목 삭제 실패: ${failures.join(", ")}`);
+        } else {
+          setStatus("삭제 완료.");
+        }
+      } catch (err) {
+        setStatus(err.message || "삭제 중 오류가 발생했습니다.");
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [fetchFiles]
+  );
 
-  const onRowClick = useCallback((item) => {
+  const onDelete = useCallback(async () => {
+    await deletePaths(selectedPaths);
+  }, [deletePaths, selectedPaths]);
+
+  const onRowClick = useCallback((item, event) => {
     if (item.placeholder) return;
-    setSelectedPath(item.fullPath);
+    setSelectedPaths((prev) => {
+      if (event?.metaKey || event?.ctrlKey) {
+        return prev.includes(item.fullPath)
+          ? prev.filter((path) => path !== item.fullPath)
+          : [...prev, item.fullPath];
+      }
+      return [item.fullPath];
+    });
   }, []);
 
-  const onRowDoubleClick = useCallback((item) => {
-    if (item.placeholder) return;
-    if (item.isDirectory) {
-      setCurrentDir(item.fullPath);
-      setSelectedPath("");
-    }
-  }, []);
+  const clearMoveAnchor = useCallback(() => setMoveAnchor(null), []);
 
-  const onBreadcrumbClick = useCallback((path) => {
-    setCurrentDir(path);
-    setSelectedPath("");
-  }, []);
+  const setMoveStartFromItem = useCallback(
+    (item) => {
+      const paths = selectedPaths.length ? selectedPaths : [item.fullPath];
+      setMoveAnchor({ paths, from: currentDir });
+      setStatus("이동 시작을 설정했습니다. 대상 폴더를 더블클릭하세요.");
+    },
+    [currentDir, selectedPaths]
+  );
+
+  const onRowDoubleClick = useCallback(
+    async (item) => {
+      if (item.placeholder) return;
+
+      if (moveAnchor) {
+        if (!item.isDirectory) {
+          setStatus("대상은 폴더여야 합니다. 폴더를 더블클릭해 주세요.");
+          return;
+        }
+        await movePaths(moveAnchor.paths, item.fullPath);
+        clearMoveAnchor();
+        return;
+      }
+
+      if (!selectedPaths.length && item.isDirectory) {
+        setCurrentDir(item.fullPath);
+        setSelectedPaths([]);
+        return;
+      }
+
+      setMoveStartFromItem(item);
+    },
+    [clearMoveAnchor, moveAnchor, movePaths, selectedPaths.length, setMoveStartFromItem]
+  );
+
+  const onBreadcrumbClick = useCallback(
+    (path) => {
+      setCurrentDir(path);
+      setSelectedPaths([]);
+      clearMoveAnchor();
+    },
+    [clearMoveAnchor]
+  );
 
   const onCopyCdn = useCallback(async (cdnUrl) => {
     if (!cdnUrl) return;
     try {
       await navigator.clipboard.writeText(cdnUrl);
       setStatus("CDN 링크를 복사했습니다.");
-    } catch (err) {
+    } catch {
       setStatus("클립보드 복사에 실패했습니다. 수동으로 복사해 주세요.");
     }
   }, []);
@@ -225,6 +288,130 @@ export default function FileBrowserClient({ userEmail }) {
   const onSettings = useCallback(() => {
     setStatus("");
   }, []);
+
+  const movePaths = useCallback(
+    async (paths, destinationDir) => {
+      if (!paths?.length) {
+        setStatus("이동할 항목을 선택하세요.");
+        return;
+      }
+
+      setStatus("");
+      try {
+        const response = await fetch("/api/files/move", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sources: paths, destinationDir }),
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data) {
+          throw new Error(data?.error || "이동에 실패했습니다.");
+        }
+
+        const failed = Array.isArray(data.results)
+          ? data.results.filter((item) => !item.ok)
+          : [];
+
+        if (failed.length > 0) {
+          setStatus(
+            `일부 항목 이동 실패: ${failed
+              .map((item) => `${item.path}${item.error ? ` (${item.error})` : ""}`)
+              .join(", ")}`
+          );
+        } else if (data.ok) {
+          setStatus("이동 완료.");
+        } else {
+          setStatus(data?.error || "이동에 실패했습니다.");
+        }
+        setSelectedPaths([]);
+        clearMoveAnchor();
+        await fetchFiles();
+      } catch (err) {
+        setStatus(err.message || "이동 중 오류가 발생했습니다.");
+      }
+    },
+    [clearMoveAnchor, fetchFiles]
+  );
+
+  const getDragPaths = useCallback(
+    (event) => {
+      const payload =
+        event?.dataTransfer?.getData("application/json") ||
+        event?.dataTransfer?.getData("text/plain");
+      if (payload) {
+        try {
+          const parsed = JSON.parse(payload);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {
+          const paths = payload
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+          if (paths.length) return paths;
+        }
+      }
+      if (dragPathsRef.current.length > 0) {
+        return dragPathsRef.current;
+      }
+      return selectedPaths;
+    },
+    [selectedPaths]
+  );
+
+  const allowDrop = useCallback((event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onBreadcrumbDoubleClick = useCallback(
+    async (path) => {
+      if (!moveAnchor) {
+        onBreadcrumbClick(path);
+        return;
+      }
+      await movePaths(moveAnchor.paths, path);
+      clearMoveAnchor();
+    },
+    [clearMoveAnchor, moveAnchor, movePaths, onBreadcrumbClick]
+  );
+
+  const onRowDragStart = useCallback(
+    (event, item) => {
+      if (item.placeholder) return;
+      const paths = selectedPaths.includes(item.fullPath)
+        ? selectedPaths
+        : [item.fullPath];
+      dragPathsRef.current = paths;
+      event.dataTransfer.effectAllowed = "move";
+      const payload = JSON.stringify(paths);
+      event.dataTransfer.setData("application/json", payload);
+      event.dataTransfer.setData("text/plain", payload);
+    },
+    [selectedPaths]
+  );
+
+  const onDropToFolder = useCallback(
+    async (event, folderPath) => {
+      event.preventDefault();
+      const paths = getDragPaths(event);
+      if (!paths.length) return;
+      await movePaths(paths, folderPath);
+      clearDragPaths();
+    },
+    [clearDragPaths, getDragPaths, movePaths]
+  );
+
+  const onDropToDelete = useCallback(
+    async (event) => {
+      event.preventDefault();
+      const paths = getDragPaths(event);
+      if (!paths.length) return;
+      await deletePaths(paths);
+      clearDragPaths();
+    },
+    [clearDragPaths, deletePaths, getDragPaths]
+  );
 
   return (
     <section className="browser-shell stack gap-lg">
@@ -259,15 +446,21 @@ export default function FileBrowserClient({ userEmail }) {
           <div className="sidebar-divider" />
           <div className="sidebar-paths" aria-label="Breadcrumb">
             {breadcrumbs.map((crumb) => (
-              <button
+              <div
                 key={crumb.path}
-                className={`sidebar-path ${crumb.path === currentDir ? "active" : ""}`}
-                onClick={() => onBreadcrumbClick(crumb.path)}
-                type="button"
-                disabled={crumb.path === currentDir}
+                onDragOver={allowDrop}
+                onDrop={(event) => onDropToFolder(event, crumb.path)}
               >
-                {crumb.label}
-              </button>
+                <button
+                  className={`sidebar-path ${crumb.path === currentDir ? "active" : ""}`}
+                  onClick={() => onBreadcrumbClick(crumb.path)}
+                  onDoubleClick={() => onBreadcrumbDoubleClick(crumb.path)}
+                  type="button"
+                  disabled={crumb.path === currentDir}
+                >
+                  {crumb.label}
+                </button>
+              </div>
             ))}
           </div>
         </aside>
@@ -307,11 +500,29 @@ export default function FileBrowserClient({ userEmail }) {
               <button className="pill" onClick={onMkdir} disabled={creating}>
                 {creating ? "생성 중..." : "폴더 생성"}
               </button>
-              <button className="pill" onClick={onDelete} disabled={deleting || !selectedPath}>
+              <button
+                className="pill"
+                onClick={onDelete}
+                disabled={deleting}
+                onDragOver={allowDrop}
+                onDrop={onDropToDelete}
+                title="선택하거나 드래그하여 삭제"
+              >
                 {deleting ? "삭제 중..." : "선택 삭제"}
               </button>
             </div>
           </div>
+
+          {moveAnchor && (
+            <div className="status info row gap-sm align-center">
+              <span>
+                이동 시작: {moveAnchor.paths.length}개 선택됨. 대상 폴더를 더블클릭하세요.
+              </span>
+              <button className="pill" type="button" onClick={clearMoveAnchor}>
+                이동 취소
+              </button>
+            </div>
+          )}
 
           <div className="file-list">
             <div className="file-list-header">
@@ -337,14 +548,25 @@ export default function FileBrowserClient({ userEmail }) {
                   <tbody>
                     {visibleItems.map((item) => {
                       const isSelected =
-                        !item.placeholder && selectedPath === item.fullPath;
+                        !item.placeholder && selectedPaths.includes(item.fullPath);
                       return (
                         <tr
                           key={item.id}
                           className={`${isSelected ? "selected" : ""} ${
                             item.placeholder ? "placeholder-row" : ""
                           }`}
-                          onClick={() => onRowClick(item)}
+                          draggable={!item.placeholder}
+                          onDragStart={(event) => onRowDragStart(event, item)}
+                          onDragEnd={clearDragPaths}
+                          onDragOver={
+                            item.isDirectory && !item.placeholder ? allowDrop : undefined
+                          }
+                          onDrop={
+                            item.isDirectory
+                              ? (event) => onDropToFolder(event, item.fullPath)
+                              : undefined
+                          }
+                          onClick={(event) => onRowClick(item, event)}
                           onDoubleClick={() => onRowDoubleClick(item)}
                         >
                           <td className="thumbnail-cell">
