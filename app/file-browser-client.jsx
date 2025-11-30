@@ -232,6 +232,51 @@ export default function FileBrowserClient({ userEmail }) {
 
   const clearMoveAnchor = useCallback(() => setMoveAnchor(null), []);
 
+  const movePaths = useCallback(
+    async (paths, destinationDir) => {
+      if (!paths?.length) {
+        setStatus("이동할 항목을 선택하세요.");
+        return;
+      }
+
+      setStatus("");
+      try {
+        const response = await fetch("/api/files/move", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sources: paths, destinationDir }),
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data) {
+          throw new Error(data?.error || "이동에 실패했습니다.");
+        }
+
+        const failed = Array.isArray(data.results)
+          ? data.results.filter((item) => !item.ok)
+          : [];
+
+        if (failed.length > 0) {
+          setStatus(
+            `일부 항목 이동 실패: ${failed
+              .map((item) => `${item.path}${item.error ? ` (${item.error})` : ""}`)
+              .join(", ")}`
+          );
+        } else if (data.ok) {
+          setStatus("이동 완료.");
+        } else {
+          setStatus(data?.error || "이동에 실패했습니다.");
+        }
+        setSelectedPaths([]);
+        clearMoveAnchor();
+        await fetchFiles();
+      } catch (err) {
+        setStatus(err.message || "이동 중 오류가 발생했습니다.");
+      }
+    },
+    [clearMoveAnchor, fetchFiles]
+  );
+
   const setMoveStartFromItem = useCallback(
     (item) => {
       const paths = selectedPaths.length ? selectedPaths : [item.fullPath];
@@ -288,51 +333,6 @@ export default function FileBrowserClient({ userEmail }) {
   const onSettings = useCallback(() => {
     setStatus("");
   }, []);
-
-  const movePaths = useCallback(
-    async (paths, destinationDir) => {
-      if (!paths?.length) {
-        setStatus("이동할 항목을 선택하세요.");
-        return;
-      }
-
-      setStatus("");
-      try {
-        const response = await fetch("/api/files/move", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sources: paths, destinationDir }),
-        });
-        const data = await response.json();
-
-        if (!response.ok || !data) {
-          throw new Error(data?.error || "이동에 실패했습니다.");
-        }
-
-        const failed = Array.isArray(data.results)
-          ? data.results.filter((item) => !item.ok)
-          : [];
-
-        if (failed.length > 0) {
-          setStatus(
-            `일부 항목 이동 실패: ${failed
-              .map((item) => `${item.path}${item.error ? ` (${item.error})` : ""}`)
-              .join(", ")}`
-          );
-        } else if (data.ok) {
-          setStatus("이동 완료.");
-        } else {
-          setStatus(data?.error || "이동에 실패했습니다.");
-        }
-        setSelectedPaths([]);
-        clearMoveAnchor();
-        await fetchFiles();
-      } catch (err) {
-        setStatus(err.message || "이동 중 오류가 발생했습니다.");
-      }
-    },
-    [clearMoveAnchor, fetchFiles]
-  );
 
   const getDragPaths = useCallback(
     (event) => {
