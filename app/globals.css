@@ -675,3 +675,119 @@ body {
     flex-wrap: wrap;
   }
 }
+
+.billing-gauge-wrapper {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 20;
+}
+
+.billing-gauge {
+  width: 260px;
+  height: 22px;
+  border-radius: 12px;
+  background: #222;
+  padding: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  cursor: default;
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.billing-gauge.is-disabled {
+  opacity: 0.7;
+  background: #3a3a3a;
+}
+
+.billing-gauge-bar {
+  width: 100%;
+  height: 14px;
+  display: flex;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #2f2f2f;
+  position: relative;
+}
+
+.billing-segment.storage {
+  background: linear-gradient(90deg, #c9c9c9, #d0d0d0);
+}
+
+.billing-segment.cdn {
+  background: linear-gradient(90deg, #8b8b8b, #979797);
+}
+
+.billing-segment.balance {
+  background: linear-gradient(90deg, #ff8a00, #ff9a1a);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.billing-segment {
+  height: 100%;
+}
+
+.billing-gauge.status-low .billing-segment.balance {
+  box-shadow: 0 0 0 1px rgba(255, 235, 150, 0.6);
+}
+
+.billing-gauge.status-critical .billing-segment.balance,
+.billing-gauge.status-overdraft .billing-segment.balance {
+  background: linear-gradient(90deg, #ff6600, #ff531a);
+}
+
+.billing-gauge.status-suspended {
+  filter: grayscale(0.9);
+}
+
+.billing-suspended-icon {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #ffd166;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.billing-inactive-label {
+  color: #dcdcdc;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.billing-tooltip {
+  min-width: 220px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.88);
+  color: #e8e8e8;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  animation: tooltip-pop 160ms ease;
+}
+
+.billing-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.billing-tooltip-total {
+  font-weight: 700;
+}
+
+@keyframes tooltip-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

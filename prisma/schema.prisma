@@ -1,20 +1,34 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")  
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
+enum AccountStatus {
+  ACTIVE
+  OVERDRAFT
+  SUSPENDED
+}
+
 model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  uidToken     String    @unique @map("uid_token")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  invites      Invite[]  @relation("UserInvites")
+  id                      String         @id @default(cuid())
+  email                   String         @unique
+  passwordHash            String         @map("password_hash")
+  uidToken                String         @unique @map("uid_token")
+  walletBalanceUsd        Float          @default(0) @map("wallet_balance_usd")
+  lifetimeChargedUsd      Float          @default(0) @map("lifetime_charged_usd")
+  lifetimeStorageCostUsd  Float          @default(0) @map("lifetime_storage_cost_usd")
+  lifetimeCdnCostUsd      Float          @default(0) @map("lifetime_cdn_cost_usd")
+  accountStatus           AccountStatus  @default(ACTIVE) @map("account_status")
+  overdraftAt             DateTime?      @map("overdraft_at")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+  invites                 Invite[]       @relation("UserInvites")
+  billingMonths           BillingMonth[]
 
   @@map("users")
 }
@@ -23,7 +37,7 @@ model Invite {
   id           Int       @id @default(autoincrement())
   code         String    @unique
   expiresAt    DateTime? @map("expires_at")
-  usedByUserId Int?      @map("used_by_user_id")
+  usedByUserId String?   @map("used_by_user_id")
   usedAt       DateTime? @map("used_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   user         User?     @relation("UserInvites", fields: [usedByUserId], references: [id])
@@ -50,4 +64,22 @@ model FileObject {
 
   @@unique([ownerId, rootUid, fullPath])
   @@index([ownerId, rootUid, parentPath])
+}
+
+model BillingMonth {
+  id              String        @id @default(cuid())
+  userId          String
+  year            Int
+  month           Int
+  storageCostUsd  Float         @default(0) @map("storage_cost_usd")
+  cdnCostUsd      Float         @default(0) @map("cdn_cost_usd")
+  storageGbDays   Float         @default(0) @map("storage_gb_days")
+  cdnBytes        BigInt        @default(0) @map("cdn_bytes")
+  cdnHits         BigInt        @default(0) @map("cdn_hits")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  user            User          @relation(fields: [userId], references: [id])
+
+  @@unique([userId, year, month])
+  @@map("billing_months")
 }

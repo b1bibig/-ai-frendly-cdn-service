@@ -3,6 +3,7 @@ import { Space_Grotesk } from "next/font/google";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Providers from "./providers";
+import { BillingGauge } from "@/app/components/BillingGauge";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -76,6 +77,7 @@ export default async function RootLayout({ children }) {
               콘텐츠 및 이용정책
             </a>
           </div>
+          <BillingGauge />
         </Providers>
       </body>
     </html>
