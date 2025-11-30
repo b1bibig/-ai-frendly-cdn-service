@@ -32,6 +32,8 @@ function clampPercent(value: number) {
 
 export function BillingGauge() {
   const [data, setData] = useState<BillingSummaryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -45,10 +47,18 @@ export function BillingGauge() {
         const response = await fetch("/api/billing/summary", { cache: "no-store" });
         if (!response.ok) throw new Error("Failed to load summary");
         const json = (await response.json()) as BillingSummaryResponse;
-        if (active) setData(json);
+        if (active) {
+          setData(json);
+          setError(null);
+        }
       } catch (error) {
         console.error("Failed to refresh billing summary", error);
-        if (active) setData(null);
+        if (active) {
+          setData(null);
+          setError("요약을 불러오지 못했습니다");
+        }
+      } finally {
+        if (active) setLoading(false);
       }
     }
 
@@ -81,13 +91,20 @@ export function BillingGauge() {
     };
   }, [hovered, pinned]);
 
+  const disabledReason = useMemo(() => {
+    if (error) return error;
+    if (data && data.wallet.lifetimeChargedUsd <= 0)
+      return "충전 내역이 없어 비활성화되었습니다";
+    return null;
+  }, [data, error]);
+
   const { storageWidth, cdnWidth, balanceWidth, disabled, status } = useMemo(() => {
     if (!data || data.wallet.lifetimeChargedUsd <= 0) {
       return {
         storageWidth: 0,
         cdnWidth: 0,
         balanceWidth: 0,
-        disabled: true,
+        disabled: Boolean(disabledReason),
         status: data?.wallet?.status ?? "ACTIVE",
       } as const;
     }
@@ -99,10 +116,10 @@ export function BillingGauge() {
       storageWidth: storagePct,
       cdnWidth: cdnPct,
       balanceWidth: balancePct,
-      disabled: false,
+      disabled: Boolean(disabledReason),
       status: data.wallet.status,
     } as const;
-  }, [data]);
+  }, [data, disabledReason]);
 
   const tooltipContent = data && (
     <div className="billing-tooltip">
@@ -159,7 +176,9 @@ export function BillingGauge() {
             {status === "SUSPENDED" && <div className="billing-suspended-icon">!</div>}
           </div>
         </div>
-        {disabled && <span className="billing-inactive-label">비활성 상태</span>}
+        {disabledReason && !loading && (
+          <span className="billing-inactive-label">{disabledReason}</span>
+        )}
       </div>
       {showTooltip && tooltipContent}
     </div>
