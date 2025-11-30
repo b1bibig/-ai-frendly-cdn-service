@@ -41,6 +41,7 @@ export default function FileBrowserClient({ userEmail }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadStatuses, setUploadStatuses] = useState([]);
   const [moveAnchor, setMoveAnchor] = useState(null);
+  const [rangeAnchorIndex, setRangeAnchorIndex] = useState(null);
   const fileInputRef = useRef(null);
   const dragPathsRef = useRef([]);
   const clearDragPaths = useCallback(() => {
@@ -88,6 +89,7 @@ export default function FileBrowserClient({ userEmail }) {
     } finally {
       setLoading(false);
       setSelectedPaths([]);
+      setRangeAnchorIndex(null);
     }
   }, [currentDir]);
 
@@ -199,6 +201,7 @@ export default function FileBrowserClient({ userEmail }) {
           }
         }
         setSelectedPaths([]);
+        clearRangeAnchor();
         await fetchFiles();
         if (failures.length > 0) {
           setStatus(`일부 항목 삭제 실패: ${failures.join(", ")}`);
@@ -211,7 +214,7 @@ export default function FileBrowserClient({ userEmail }) {
         setDeleting(false);
       }
     },
-    [fetchFiles]
+    [clearRangeAnchor, fetchFiles]
   );
 
   const onDelete = useCallback(async () => {
@@ -231,6 +234,7 @@ export default function FileBrowserClient({ userEmail }) {
   }, []);
 
   const clearMoveAnchor = useCallback(() => setMoveAnchor(null), []);
+  const clearRangeAnchor = useCallback(() => setRangeAnchorIndex(null), []);
 
   const movePaths = useCallback(
     async (paths, destinationDir) => {
@@ -269,27 +273,60 @@ export default function FileBrowserClient({ userEmail }) {
         }
         setSelectedPaths([]);
         clearMoveAnchor();
+        clearRangeAnchor();
         await fetchFiles();
       } catch (err) {
         setStatus(err.message || "이동 중 오류가 발생했습니다.");
       }
     },
-    [clearMoveAnchor, fetchFiles]
+    [clearMoveAnchor, clearRangeAnchor, fetchFiles]
   );
 
-  const setMoveStartFromItem = useCallback(
-    (item) => {
-      if (item.isDirectory) return;
-      const paths = selectedPaths.length ? selectedPaths : [item.fullPath];
+  const setMoveStartFromPaths = useCallback(
+    (paths) => {
+      if (!paths?.length) return;
       setMoveAnchor({ paths, from: currentDir });
       setStatus("이동 시작을 설정했습니다. 대상 폴더를 더블클릭하세요.");
     },
-    [currentDir, selectedPaths]
+    [currentDir]
+  );
+
+  const startRangeSelection = useCallback(
+    (index) => {
+      const item = visibleItems[index];
+      if (!item || item.placeholder || item.isDirectory) return;
+      setRangeAnchorIndex(index);
+      const paths = [item.fullPath];
+      setSelectedPaths(paths);
+      setMoveStartFromPaths(paths);
+      setStatus("범위 선택을 시작했습니다. 끝 항목을 더블클릭하세요.");
+    },
+    [setMoveStartFromPaths, visibleItems]
+  );
+
+  const selectRangeToIndex = useCallback(
+    (index) => {
+      if (rangeAnchorIndex === null) return;
+      const start = Math.min(rangeAnchorIndex, index);
+      const end = Math.max(rangeAnchorIndex, index);
+      const rangeItems = visibleItems.slice(start, end + 1).filter((item) => !item.placeholder);
+      const paths = rangeItems.map((entry) => entry.fullPath);
+      setSelectedPaths(paths);
+      setMoveStartFromPaths(paths);
+      setRangeAnchorIndex(null);
+      setStatus(`${paths.length}개를 선택했습니다. 이동하려면 대상 폴더를 더블클릭하세요.`);
+    },
+    [rangeAnchorIndex, setMoveStartFromPaths, visibleItems]
   );
 
   const onRowDoubleClick = useCallback(
-    async (item) => {
+    async (item, index) => {
       if (item.placeholder) return;
+
+      if (rangeAnchorIndex !== null && !item.isDirectory) {
+        selectRangeToIndex(index);
+        return;
+      }
 
       if (moveAnchor) {
         if (!item.isDirectory) {
@@ -298,18 +335,28 @@ export default function FileBrowserClient({ userEmail }) {
         }
         await movePaths(moveAnchor.paths, item.fullPath);
         clearMoveAnchor();
+        clearRangeAnchor();
         return;
       }
 
       if (!moveAnchor && item.isDirectory) {
         setCurrentDir(item.fullPath);
         setSelectedPaths([]);
+        clearRangeAnchor();
         return;
       }
 
-      setMoveStartFromItem(item);
+      startRangeSelection(index);
     },
-    [clearMoveAnchor, moveAnchor, movePaths, setMoveStartFromItem]
+    [
+      clearMoveAnchor,
+      clearRangeAnchor,
+      moveAnchor,
+      movePaths,
+      rangeAnchorIndex,
+      selectRangeToIndex,
+      startRangeSelection,
+    ]
   );
 
   const onBreadcrumbClick = useCallback(
@@ -317,8 +364,9 @@ export default function FileBrowserClient({ userEmail }) {
       setCurrentDir(path);
       setSelectedPaths([]);
       clearMoveAnchor();
+      clearRangeAnchor();
     },
-    [clearMoveAnchor]
+    [clearMoveAnchor, clearRangeAnchor]
   );
 
   const onCopyCdn = useCallback(async (cdnUrl) => {
@@ -547,12 +595,12 @@ export default function FileBrowserClient({ userEmail }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleItems.map((item) => {
-                      const isSelected =
-                        !item.placeholder && selectedPaths.includes(item.fullPath);
-                      return (
-                        <tr
-                          key={item.id}
+                  {visibleItems.map((item, index) => {
+                    const isSelected =
+                      !item.placeholder && selectedPaths.includes(item.fullPath);
+                    return (
+                      <tr
+                        key={item.id}
                           className={`${isSelected ? "selected" : ""} ${
                             item.placeholder ? "placeholder-row" : ""
                           }`}
@@ -568,7 +616,7 @@ export default function FileBrowserClient({ userEmail }) {
                               : undefined
                           }
                           onClick={(event) => onRowClick(item, event)}
-                          onDoubleClick={() => onRowDoubleClick(item)}
+                          onDoubleClick={() => onRowDoubleClick(item, index)}
                         >
                           <td className="thumbnail-cell">
                             {!item.isDirectory && item.thumbnailUrl ? (
