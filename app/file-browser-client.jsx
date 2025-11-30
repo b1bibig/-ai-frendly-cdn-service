@@ -41,8 +41,21 @@ export default function FileBrowserClient({ userEmail }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadStatuses, setUploadStatuses] = useState([]);
   const fileInputRef = useRef(null);
+  const [directoryTree, setDirectoryTree] = useState({
+    "/": { name: "root", children: [], expanded: true, loading: false, loaded: false },
+  });
 
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDir), [currentDir]);
+
+  const directories = useMemo(
+    () => visibleItems.filter((item) => item.isDirectory),
+    [visibleItems]
+  );
+
+  const filesOnly = useMemo(
+    () => visibleItems.filter((item) => !item.isDirectory),
+    [visibleItems]
+  );
 
   const visibleItems = useMemo(() => {
     if (items.length === 0 && currentDir === "/") {
@@ -62,33 +75,142 @@ export default function FileBrowserClient({ userEmail }) {
     return items;
   }, [currentDir, items]);
 
+  const fetchDirectoryContents = useCallback(async (dirPath) => {
+    const response = await fetch(`/api/files?dir=${encodeURIComponent(dirPath)}`, {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.error || "Failed to load files");
+    }
+    return data;
+  }, []);
+
+  const updateTreeWithDirectories = useCallback((parentPath, directoryItems) => {
+    setDirectoryTree((prev) => {
+      const next = { ...prev };
+      const parentNode =
+        next[parentPath] ||
+        ({
+          name: parentPath === "/" ? "root" : parentPath.split("/").pop() || parentPath,
+          children: [],
+          expanded: parentPath === "/",
+          loading: false,
+          loaded: false,
+        });
+
+      next[parentPath] = {
+        ...parentNode,
+        children: directoryItems.map((dir) => dir.fullPath),
+        loaded: true,
+        loading: false,
+      };
+
+      directoryItems.forEach((dir) => {
+        next[dir.fullPath] = {
+          name: dir.name,
+          children: next[dir.fullPath]?.children || [],
+          expanded: next[dir.fullPath]?.expanded || false,
+          loading: next[dir.fullPath]?.loading || false,
+          loaded: next[dir.fullPath]?.loaded || false,
+        };
+      });
+
+      return next;
+    });
+  }, []);
+
+  const fetchTreeChildren = useCallback(
+    async (dirPath) => {
+      setDirectoryTree((prev) => ({
+        ...prev,
+        [dirPath]: {
+          name: prev[dirPath]?.name || (dirPath === "/" ? "root" : dirPath.split("/").pop()),
+          children: prev[dirPath]?.children || [],
+          expanded: true,
+          loading: true,
+          loaded: prev[dirPath]?.loaded || false,
+        },
+      }));
+
+      try {
+        const data = await fetchDirectoryContents(dirPath);
+        const directories = data.filter((item) => item.isDirectory);
+        updateTreeWithDirectories(dirPath, directories);
+      } catch (err) {
+        setStatus(err.message || "Failed to load directory tree");
+        setDirectoryTree((prev) => ({
+          ...prev,
+          [dirPath]: { ...prev[dirPath], loading: false },
+        }));
+      }
+    },
+    [fetchDirectoryContents, updateTreeWithDirectories]
+  );
+
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/files?dir=${encodeURIComponent(currentDir)}`, {
-        cache: "no-store",
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to load files");
-      }
+      const data = await fetchDirectoryContents(currentDir);
       const sorted = [...data].sort((a, b) => {
         if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
         return a.isDirectory ? -1 : 1;
       });
       setItems(sorted);
+      updateTreeWithDirectories(
+        currentDir,
+        sorted.filter((item) => item.isDirectory)
+      );
     } catch (err) {
       setError(err.message || "Failed to load files");
     } finally {
       setLoading(false);
       setSelectedPath("");
     }
-  }, [currentDir]);
+  }, [currentDir, fetchDirectoryContents, updateTreeWithDirectories]);
 
   useEffect(() => {
     fetchFiles();
   }, [fetchFiles]);
+
+  const handleDirectorySelect = useCallback((path) => {
+    setCurrentDir(path);
+    setSelectedPath("");
+  }, []);
+
+  const handleToggleNode = useCallback(
+    (path) => {
+      let shouldLoad = false;
+      setDirectoryTree((prev) => {
+        const node =
+          prev[path] ||
+          ({
+            name: path === "/" ? "root" : path.split("/").pop() || path,
+            children: [],
+            expanded: false,
+            loading: false,
+            loaded: false,
+          });
+        const nextExpanded = !node.expanded;
+        if (nextExpanded && !node.loaded && !node.loading) {
+          shouldLoad = true;
+        }
+        return {
+          ...prev,
+          [path]: {
+            ...node,
+            expanded: nextExpanded,
+          },
+        };
+      });
+
+      if (shouldLoad) {
+        fetchTreeChildren(path);
+      }
+    },
+    [fetchTreeChildren]
+  );
 
   const onUpload = useCallback(
     async (event) => {
@@ -199,18 +321,22 @@ export default function FileBrowserClient({ userEmail }) {
     setSelectedPath(item.fullPath);
   }, []);
 
-  const onRowDoubleClick = useCallback((item) => {
-    if (item.placeholder) return;
-    if (item.isDirectory) {
-      setCurrentDir(item.fullPath);
-      setSelectedPath("");
-    }
-  }, []);
+  const onRowDoubleClick = useCallback(
+    (item) => {
+      if (item.placeholder) return;
+      if (item.isDirectory) {
+        handleDirectorySelect(item.fullPath);
+      }
+    },
+    [handleDirectorySelect]
+  );
 
-  const onBreadcrumbClick = useCallback((path) => {
-    setCurrentDir(path);
-    setSelectedPath("");
-  }, []);
+  const onBreadcrumbClick = useCallback(
+    (path) => {
+      handleDirectorySelect(path);
+    },
+    [handleDirectorySelect]
+  );
 
   const onCopyCdn = useCallback(async (cdnUrl) => {
     if (!cdnUrl) return;
@@ -218,13 +344,56 @@ export default function FileBrowserClient({ userEmail }) {
       await navigator.clipboard.writeText(cdnUrl);
       setStatus("CDN 링크를 복사했습니다.");
     } catch (err) {
-      setStatus("클립보드 복사에 실패했습니다. 수동으로 복사해 주세요.");
+      const message =
+        err instanceof Error
+          ? err.message
+          : "클립보드 복사에 실패했습니다. 수동으로 복사해 주세요.";
+      setStatus(message);
     }
   }, []);
 
   const onSettings = useCallback(() => {
     setStatus("");
   }, []);
+
+  const DirectoryNode = ({ path }) => {
+    const node = directoryTree[path];
+    if (!node) return null;
+    const isActive = currentDir === path;
+
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="토글"
+            onClick={() => handleToggleNode(path)}
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:border-orange-300 hover:text-orange-500"
+          >
+            {node.loading ? "···" : node.expanded ? "▾" : "▸"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDirectorySelect(path)}
+            className={`flex-1 rounded-md px-3 py-2 text-left text-sm font-semibold transition border ${
+              isActive
+                ? "border-orange-300 bg-orange-50 text-orange-600 shadow-sm"
+                : "border-transparent bg-white text-gray-700 hover:border-orange-200 hover:bg-orange-50"
+            }`}
+          >
+            {node.name}
+          </button>
+        </div>
+        {node.expanded && node.children.length > 0 && (
+          <div className="pl-4 border-l border-orange-100 space-y-1">
+            {node.children.map((childPath) => (
+              <DirectoryNode key={childPath} path={childPath} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <section className="browser-shell stack gap-lg">
@@ -254,9 +423,15 @@ export default function FileBrowserClient({ userEmail }) {
       </div>
 
       <div className="browser-layout">
-        <aside className="browser-sidebar">
+        <aside className="browser-sidebar space-y-4">
           <div className="sidebar-logo">zcxv</div>
-          <div className="sidebar-divider" />
+          <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between text-sm font-semibold text-gray-700">
+              <span>폴더 트리</span>
+              <span className="text-xs text-gray-400">탐색기</span>
+            </div>
+            <DirectoryNode path="/" />
+          </div>
           <div className="sidebar-paths" aria-label="Breadcrumb">
             {breadcrumbs.map((crumb) => (
               <button
@@ -314,7 +489,7 @@ export default function FileBrowserClient({ userEmail }) {
           </div>
 
           <div className="file-list">
-            <div className="file-list-header">
+            <div className="file-list-header flex items-center justify-between">
               <span className="muted">경로: {currentDir}</span>
               {loading && <span className="muted">불러오는 중...</span>}
             </div>
@@ -323,84 +498,123 @@ export default function FileBrowserClient({ userEmail }) {
             ) : visibleItems.length === 0 ? (
               <div className="status">이 위치에 파일이나 폴더가 없습니다.</div>
             ) : (
-              <div className="table-wrapper file-table-wrapper">
-                <table className="file-table">
-                  <thead>
-                    <tr>
-                      <th>썸네일</th>
-                      <th>이름</th>
-                      <th>유형</th>
-                      <th>크기</th>
-                      <th>업데이트</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleItems.map((item) => {
-                      const isSelected =
-                        !item.placeholder && selectedPath === item.fullPath;
-                      return (
-                        <tr
-                          key={item.id}
-                          className={`${isSelected ? "selected" : ""} ${
-                            item.placeholder ? "placeholder-row" : ""
-                          }`}
-                          onClick={() => onRowClick(item)}
-                          onDoubleClick={() => onRowDoubleClick(item)}
-                        >
-                          <td className="thumbnail-cell">
-                            {!item.isDirectory && item.thumbnailUrl ? (
-                              <a
-                                href={item.cdnUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                title="원본 보기"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={item.thumbnailUrl}
-                                  alt={`${item.name} thumbnail`}
-                                  width={120}
-                                  height={120}
-                                  className="thumbnail-image"
-                                />
-                              </a>
-                            ) : (
-                              <span className="muted">-</span>
-                            )}
-                          </td>
-                          <td className="file-name">
-                            <div className="file-name-main">
-                              <span className="file-icon">{iconFor(item.isDirectory)}</span>
-                              <span className="file-label">{item.name}</span>
-                            </div>
-                            {!item.isDirectory && item.cdnUrl && (
-                              <div className="cdn-row">
-                                <a
-                                  href={item.cdnUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="cdn-link"
-                                >
-                                  {item.cdnUrl}
-                                </a>
-                                <button
-                                  className="copy-button"
-                                  type="button"
-                                  onClick={() => onCopyCdn(item.cdnUrl)}
-                                >
-                                  복사
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                          <td>{item.isDirectory ? "폴더" : item.mimeType || "파일"}</td>
-                          <td>{item.isDirectory ? "-" : formatBytes(item.size)}</td>
-                          <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ""}</td>
+              <div className="space-y-6">
+                {directories.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-gray-700">폴더</div>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {directories.map((item) => {
+                        const isSelected = !item.placeholder && selectedPath === item.fullPath;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => onRowClick(item)}
+                            onDoubleClick={() => onRowDoubleClick(item)}
+                            className={`flex aspect-square flex-col items-center justify-center rounded-2xl border text-center transition ${
+                              isSelected
+                                ? "border-orange-400 bg-orange-50 shadow"
+                                : "border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm"
+                            } ${item.placeholder ? "opacity-70" : ""}`}
+                          >
+                            <span className="text-4xl">{iconFor(true)}</span>
+                            <span className="mt-2 w-full truncate text-sm font-medium text-gray-800">
+                              {item.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {filesOnly.length > 0 && (
+                  <div className="table-wrapper file-table-wrapper">
+                    <table className="file-table">
+                      <thead>
+                        <tr>
+                          <th>썸네일</th>
+                          <th>이름</th>
+                          <th>유형</th>
+                          <th>크기</th>
+                          <th>업데이트</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {filesOnly.map((item) => {
+                          const isSelected = !item.placeholder && selectedPath === item.fullPath;
+                          return (
+                            <tr
+                              key={item.id}
+                              className={`${isSelected ? "selected" : ""} ${
+                                item.placeholder ? "placeholder-row" : ""
+                              }`}
+                              onClick={() => onRowClick(item)}
+                              onDoubleClick={() => onRowDoubleClick(item)}
+                            >
+                              <td className="thumbnail-cell">
+                                {!item.isDirectory && item.thumbnailUrl ? (
+                                  <a
+                                    href={item.cdnUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="원본 보기"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={item.thumbnailUrl}
+                                      alt={`${item.name} thumbnail`}
+                                      width={120}
+                                      height={120}
+                                      className="thumbnail-image"
+                                    />
+                                  </a>
+                                ) : (
+                                  <span className="muted">-</span>
+                                )}
+                              </td>
+                              <td className="file-name">
+                                <div className="file-name-main">
+                                  <span className="file-icon">{iconFor(item.isDirectory)}</span>
+                                  <span className="file-label">{item.name}</span>
+                                </div>
+                                {!item.isDirectory && item.cdnUrl && (
+                                  <div className="cdn-row">
+                                    <a
+                                      href={item.cdnUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="cdn-link"
+                                    >
+                                      {item.cdnUrl}
+                                    </a>
+                                    <button
+                                      className="copy-button"
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onCopyCdn(item.cdnUrl);
+                                      }}
+                                    >
+                                      복사
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                              <td>{item.isDirectory ? "폴더" : item.mimeType || "파일"}</td>
+                              <td>{item.isDirectory ? "-" : formatBytes(item.size)}</td>
+                              <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ""}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {directories.length > 0 && filesOnly.length === 0 && (
+                  <div className="status">이 위치에 파일이 없습니다.</div>
+                )}
               </div>
             )}
           </div>

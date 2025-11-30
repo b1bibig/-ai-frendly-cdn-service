@@ -108,16 +108,31 @@ export async function DELETE(request: Request) {
       const bunnyKey = getEnv("BUNNY_ACCESS_KEY");
 
       const deleteUrl = `https://${bunnyHost}/${bunnyZone}/${rootUid}${filePath}`;
-      const bunnyResponse = await fetch(deleteUrl, {
-        method: "DELETE",
-        headers: { AccessKey: bunnyKey },
-        cache: "no-store",
-      });
+      const deleteThumbnailUrl = `https://${bunnyHost}/${bunnyZone}/${rootUid}_THNL${filePath}`;
 
-      if (!bunnyResponse.ok) {
-        const errorText = await bunnyResponse.text().catch(() => "");
+      const deleteObject = async (url: string) => {
+        const response = await fetch(url, {
+          method: "DELETE",
+          headers: { AccessKey: bunnyKey },
+          cache: "no-store",
+        });
+
+        if (response.ok || response.status === 404) {
+          return null;
+        }
+
+        const errorText = await response.text().catch(() => "");
+        return `Bunny delete failed: ${errorText || response.statusText}`;
+      };
+
+      const [originalError, thumbnailError] = await Promise.all([
+        deleteObject(deleteUrl),
+        deleteObject(deleteThumbnailUrl),
+      ]);
+
+      if (originalError || thumbnailError) {
         return NextResponse.json(
-          { ok: false, error: `Bunny delete failed: ${errorText || bunnyResponse.statusText}` },
+          { ok: false, error: originalError || thumbnailError || "Delete failed" },
           { status: 502 }
         );
       }
