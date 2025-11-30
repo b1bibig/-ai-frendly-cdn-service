@@ -45,6 +45,7 @@ export async function GET(request: Request) {
     const { ownerId, rootUid } = await requireSession();
     const dir = normalizeDirectoryPath(new URL(request.url).searchParams.get("dir"));
     const cdnBase = getEnv("BUNNY_CDN_BASE_URL").replace(/\/+$/, "");
+    const thumbnailPrefix = `${rootUid}_THNL`;
 
     const files = await prisma.fileObject.findMany({
       where: { ownerId, rootUid, parentPath: dir },
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
       cdnUrl: `${cdnBase}/${rootUid}/${file.relativePath}`,
       thumbnailUrl: file.isDirectory
         ? null
-        : `${cdnBase}/${rootUid}_THNL/${file.relativePath}`,
+        : `${cdnBase}/${thumbnailPrefix}/${file.relativePath}`,
     }));
 
     return NextResponse.json(filesWithCdn);
@@ -106,20 +107,39 @@ export async function DELETE(request: Request) {
       const bunnyHost = getEnv("BUNNY_STORAGE_HOST");
       const bunnyZone = getEnv("BUNNY_STORAGE_ZONE");
       const bunnyKey = getEnv("BUNNY_ACCESS_KEY");
+      const thumbnailPrefix = `${rootUid}_THNL`;
 
-      const deleteUrl = `https://${bunnyHost}/${bunnyZone}/${rootUid}${filePath}`;
-      const bunnyResponse = await fetch(deleteUrl, {
-        method: "DELETE",
-        headers: { AccessKey: bunnyKey },
-        cache: "no-store",
-      });
+      const deleteFromStorage = async (path: string, allowMissing = false) => {
+        const deleteUrl = `https://${bunnyHost}/${bunnyZone}/${path}`;
+        const bunnyResponse = await fetch(deleteUrl, {
+          method: "DELETE",
+          headers: { AccessKey: bunnyKey },
+          cache: "no-store",
+        });
 
-      if (!bunnyResponse.ok) {
-        const errorText = await bunnyResponse.text().catch(() => "");
-        return NextResponse.json(
-          { ok: false, error: `Bunny delete failed: ${errorText || bunnyResponse.statusText}` },
-          { status: 502 }
-        );
+        if (allowMissing && bunnyResponse.status === 404) {
+          return { ok: true as const };
+        }
+
+        if (!bunnyResponse.ok) {
+          const errorText = await bunnyResponse.text().catch(() => "");
+          return {
+            ok: false as const,
+            error: `Bunny delete failed: ${errorText || bunnyResponse.statusText}`,
+          };
+        }
+
+        return { ok: true as const };
+      };
+
+      const originalDelete = await deleteFromStorage(`${rootUid}${filePath}`);
+      if (!originalDelete.ok) {
+        return NextResponse.json({ ok: false, error: originalDelete.error }, { status: 502 });
+      }
+
+      const thumbnailDelete = await deleteFromStorage(`${thumbnailPrefix}${filePath}`, true);
+      if (!thumbnailDelete.ok) {
+        return NextResponse.json({ ok: false, error: thumbnailDelete.error }, { status: 502 });
       }
     }
 
