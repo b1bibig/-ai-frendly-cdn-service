@@ -15,34 +15,34 @@ enum AccountStatus {
 }
 
 model User {
-  id                   String         @id @default(cuid())
-  email                String         @unique
-  passwordHash         String
-  uidToken             String         @unique
+  id                     Int             @id @default(autoincrement())
+  email                  String          @unique
+  passwordHash           String          @map("password_hash")
+  uidToken               String          @unique @map("uid_token")
 
-  walletBalanceUsd     Float          @default(0)
-  lifetimeChargedUsd   Float          @default(0)
-  lifetimeStorageCostUsd Float        @default(0)
-  lifetimeCdnCostUsd   Float          @default(0)
+  walletBalanceUsd       Float           @default(0) @map("wallet_balance_usd")
+  lifetimeChargedUsd     Float           @default(0) @map("lifetime_charged_usd")
+  lifetimeStorageCostUsd Float           @default(0) @map("lifetime_storage_cost_usd")
+  lifetimeCdnCostUsd     Float           @default(0) @map("lifetime_cdn_cost_usd")
 
-  accountStatus        AccountStatus  @default(ACTIVE)
-  overdraftAt          DateTime?
+  accountStatus          AccountStatus   @default(ACTIVE) @map("account_status")
+  overdraftAt            DateTime?       @map("overdraft_at")
 
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
 
-  invites              Invite[]       @relation("UserInvites")
-  billingMonths        BillingMonth[]
-  fileObjects          FileObject[]
+  invites                Invite[]        @relation("UserInvites")
+  billingMonths          BillingMonth[]
+  fileObjects            FileObject[]
 
   @@map("users")
 }
 
 model Invite {
-  id           String   @id @default(cuid())
-  code         String   @unique
+  id           Int       @id @default(autoincrement())
+  code         String    @unique
   expiresAt    DateTime? @map("expires_at")
-  usedByUserId String?  @map("used_by_user_id")
+  usedByUserId Int?      @map("used_by_user_id")
   usedAt       DateTime? @map("used_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   user         User?     @relation("UserInvites", fields: [usedByUserId], references: [id])
@@ -52,29 +52,30 @@ model Invite {
 
 model BillingMonth {
   id             String   @id @default(cuid())
-  userId         String
+  userId         Int      @map("user_id")
 
   year           Int
   month          Int
 
-  storageCostUsd Float    @default(0)
-  cdnCostUsd     Float    @default(0)
+  storageCostUsd Float    @default(0) @map("storage_cost_usd")
+  cdnCostUsd     Float    @default(0) @map("cdn_cost_usd")
 
-  storageGbDays  Float    @default(0)
-  cdnBytes       BigInt   @default(0)
-  cdnHits        BigInt   @default(0)
+  storageGbDays  Float    @default(0) @map("storage_gb_days")
+  cdnBytes       BigInt   @default(0) @map("cdn_bytes")
+  cdnHits        BigInt   @default(0) @map("cdn_hits")
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   user           User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, year, month])
+  @@map("billing_months")
 }
 
 model FileObject {
   id           String   @id @default(cuid())
-  ownerId      String
+  ownerId      Int      @map("ownerId")
   rootUid      String
 
   fullPath     String
@@ -82,7 +83,7 @@ model FileObject {
   parentPath   String
   name         String
 
-  isDirectory  Boolean @default(false)
+  isDirectory  Boolean  @default(false)
   size         Int?
   mimeType     String?
 
@@ -93,4 +94,5 @@ model FileObject {
 
   @@unique([ownerId, rootUid, fullPath])
   @@index([ownerId, rootUid, parentPath])
+  @@map("FileObject")
 }
