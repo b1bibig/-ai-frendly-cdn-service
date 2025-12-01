@@ -24,7 +24,7 @@ body {
 
 .app-body {
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .bg-surface {
