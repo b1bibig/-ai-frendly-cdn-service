@@ -34,12 +34,39 @@ CREATE TABLE IF NOT EXISTS "billing_months" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "billing_months_user_id_year_month_key" ON "billing_months"("user_id", "year", "month");
-ALTER TABLE IF EXISTS "billing_months" ADD CONSTRAINT IF NOT EXISTS "billing_months_user_id_fkey"
-  FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_schema = 'public'
+      AND table_name = 'billing_months'
+      AND constraint_name = 'billing_months_user_id_fkey'
+  ) THEN
+    ALTER TABLE "billing_months" ADD CONSTRAINT "billing_months_user_id_fkey"
+      FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- FileObject owner to integer users
-ALTER TABLE IF EXISTS "FileObject"
-  ALTER COLUMN IF EXISTS "ownerId" TYPE INTEGER USING "ownerId"::integer;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'FileObject' AND column_name = 'ownerId'
+  ) THEN
+    ALTER TABLE "FileObject" ALTER COLUMN "ownerId" TYPE INTEGER USING "ownerId"::integer;
+  END IF;
+END $$;
 
 ALTER TABLE IF EXISTS "FileObject" DROP CONSTRAINT IF EXISTS "FileObject_ownerId_fkey";
-ALTER TABLE IF EXISTS "FileObject" ADD CONSTRAINT IF NOT EXISTS "FileObject_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_schema = 'public'
+      AND table_name = 'FileObject'
+      AND constraint_name = 'FileObject_ownerId_fkey'
+  ) THEN
+    ALTER TABLE IF EXISTS "FileObject" ADD CONSTRAINT "FileObject_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
