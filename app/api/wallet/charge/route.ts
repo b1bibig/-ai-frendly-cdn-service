@@ -12,6 +12,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const userId = session.user.id;
+
   const body = await request.json().catch(() => null);
   const amountUsd = Number(body?.amountUsd ?? 0);
 
@@ -21,11 +23,11 @@ export async function POST(request: Request) {
 
   const updated = await prisma
     .$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: session.user.id } });
+      const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new Error("User not found");
       const newBalance = user.walletBalanceUsd + amountUsd;
       return tx.user.update({
-        where: { id: session.user.id },
+        where: { id: userId },
         data: {
           walletBalanceUsd: newBalance,
           lifetimeChargedUsd: { increment: amountUsd },
