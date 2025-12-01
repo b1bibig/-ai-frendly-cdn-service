@@ -213,7 +213,7 @@ export default function DevConsole() {
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper scrollable">
           <table className="invite-table">
             <thead>
               <tr>
