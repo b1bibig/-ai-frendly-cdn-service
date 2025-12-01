@@ -686,3 +686,108 @@ body {
     flex-wrap: wrap;
   }
 }
+
+.billing-gauge-wrapper {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 11px;
+  z-index: 20;
+}
+
+.billing-top-numbers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+  font-size: 11px;
+}
+
+.billing-top-line.balance {
+  color: #ff8a00;
+}
+
+.billing-top-line.storage {
+  color: #c9c9c9;
+}
+
+.billing-top-line.cdn {
+  color: #8b8b8b;
+}
+
+.billing-bar {
+  width: 100%;
+  height: 20px;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  background: #ececec;
+  position: relative;
+  transition: filter 0.2s ease, border 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.billing-bar.billing-bar-inactive {
+  background: linear-gradient(90deg, #d7d7d7, #d7d7d7);
+}
+
+.billing-bar.billing-bar-suspended {
+  border: 1px solid #c0392b;
+  filter: saturate(0.5);
+}
+
+.billing-bar-segment.storage {
+  background: #c9c9c9;
+}
+
+.billing-bar-segment.cdn {
+  background: #8b8b8b;
+}
+
+.billing-bar-segment.balance {
+  background: #ff8a00;
+}
+
+.billing-tooltip {
+  position: absolute;
+  right: 0;
+  bottom: 26px;
+  min-width: 200px;
+  background: rgba(0, 0, 0, 0.88);
+  color: #e8e8e8;
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transform-origin: bottom right;
+  transform: scale(0.96);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.billing-tooltip.show {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.tooltip-line {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tooltip-line.total {
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.billing-error {
+  color: #9ca3af;
+  font-size: 11px;
+}
