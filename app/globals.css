@@ -299,6 +299,11 @@ body {
   overflow-x: auto;
 }
 
+.table-wrapper.scrollable {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
 .invite-table {
   width: 100%;
   border-collapse: collapse;
@@ -310,6 +315,12 @@ body {
   padding: 10px 8px;
   text-align: left;
   border-bottom: 1px solid var(--border);
+}
+
+.table-wrapper.scrollable .invite-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
 }
 
 .invite-table th:first-child,
