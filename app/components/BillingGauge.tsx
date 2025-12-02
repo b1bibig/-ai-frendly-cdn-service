@@ -32,23 +32,33 @@ export function BillingGauge() {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const load = async () => {
       setError(null);
+      setLoading(true);
       try {
         const res = await fetch("/api/billing/summary", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load billing");
         const json = (await res.json()) as SummaryResponse;
         setData(json);
+        setLastUpdated(new Date());
       } catch (err) {
         console.error(err);
         setError("Billing unavailable");
       }
+      setLoading(false);
     };
     load();
+
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
   }, []);
 
   const ratios = useMemo(() => {
@@ -88,11 +98,25 @@ export function BillingGauge() {
     : 0;
 
   return (
-    <div className="billing-gauge-wrapper" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div
+      className="billing-gauge-wrapper"
+      data-state={error ? "error" : data ? "live" : "loading"}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className="billing-top-numbers">
         <div className="billing-top-line balance">Balance: {formatCurrency(data?.wallet.balanceUsd ?? 0)}</div>
         <div className="billing-top-line storage">Storage: {formatCurrency(data?.usage.storage.costThisMonthUsd ?? 0)}</div>
         <div className="billing-top-line cdn">CDN: {formatCurrency(data?.usage.cdn.costThisMonthUsd ?? 0)}</div>
+        <div className="billing-top-line meta" aria-live="polite">
+          {loading
+            ? "Loading…"
+            : error
+            ? "Offline"
+            : lastUpdated
+            ? `Live · ${lastUpdated.toLocaleTimeString()}`
+            : "Live"}
+        </div>
       </div>
       <div
         className={`billing-bar ${barInactive ? "billing-bar-inactive" : ""} ${
@@ -106,6 +130,7 @@ export function BillingGauge() {
             <div className="billing-bar-segment balance" style={{ flex: ratios.balance }} />
           </>
         )}
+        {loading && <div className="billing-bar-sheen" aria-hidden />}
       </div>
       {showTooltip && data && (
         <div className="billing-tooltip show">
