@@ -15,6 +15,12 @@ const formatBytes = (bytes) => {
 
 const iconFor = (isDirectory) => (isDirectory ? "📁" : "📄");
 
+const sortItems = (list) =>
+  [...list].sort((a, b) => {
+    if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
+    return a.isDirectory ? -1 : 1;
+  });
+
 const ensureThumbnailUrl = (item) => {
   if (item?.isDirectory) return null;
 
@@ -108,11 +114,7 @@ export default function FileBrowserClient({ userEmail }) {
         ...item,
         thumbnailUrl: ensureThumbnailUrl(item),
       }));
-      const sorted = [...normalized].sort((a, b) => {
-        if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
-        return a.isDirectory ? -1 : 1;
-      });
-      setItems(sorted);
+      setItems(sortItems(normalized));
     } catch (err) {
       setError(err.message || "Failed to load files");
     } finally {
@@ -194,6 +196,22 @@ export default function FileBrowserClient({ userEmail }) {
       if (!response.ok || !data?.ok) {
         throw new Error(data?.error || "폴더 생성 실패");
       }
+      const normalizedDirectory = {
+        ...data.directory,
+        cdnUrl: null,
+        thumbnailUrl: null,
+        mimeType: data.directory?.mimeType ?? "폴더",
+      };
+      setItems((prev) => {
+        const withoutPlaceholders = prev.filter((item) => !item.placeholder);
+        const hasDirectory = withoutPlaceholders.some(
+          (item) => item.fullPath === normalizedDirectory.fullPath
+        );
+        if (hasDirectory) {
+          return sortItems(withoutPlaceholders);
+        }
+        return sortItems([...withoutPlaceholders, normalizedDirectory]);
+      });
       setNewFolderName("");
       setStatus("폴더를 만들었습니다.");
       await fetchFiles();
