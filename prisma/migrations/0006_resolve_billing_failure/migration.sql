@@ -47,48 +47,4 @@ BEGIN
   END IF;
 END $$;
 
--- FileObject owner to integer users when compatible
-ALTER TABLE IF EXISTS "FileObject" DROP CONSTRAINT IF EXISTS "FileObject_ownerId_fkey";
-DO $$
-DECLARE
-  user_type  text;
-  owner_type text;
-  constraint_exists boolean;
-BEGIN
-  SELECT data_type INTO user_type
-  FROM information_schema.columns
-  WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id';
-
-  SELECT data_type INTO owner_type
-  FROM information_schema.columns
-  WHERE table_schema = 'public' AND table_name = 'FileObject' AND column_name = 'ownerId';
-
-  IF owner_type IS NOT NULL THEN
-    IF user_type = 'integer' AND owner_type <> 'integer' THEN
-      BEGIN
-        ALTER TABLE "FileObject" ALTER COLUMN "ownerId" TYPE INTEGER USING "ownerId"::integer;
-        SELECT data_type INTO owner_type
-        FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'FileObject' AND column_name = 'ownerId';
-      EXCEPTION WHEN others THEN
-        RAISE NOTICE 'Skipping ownerId type change due to conversion failure: %', SQLERRM;
-      END;
-    END IF;
-
-    IF user_type = owner_type AND user_type IS NOT NULL THEN
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints
-        WHERE table_schema = 'public'
-          AND table_name = 'FileObject'
-          AND constraint_name = 'FileObject_ownerId_fkey'
-      ) INTO constraint_exists;
-
-      IF NOT constraint_exists THEN
-        ALTER TABLE IF EXISTS "FileObject" ADD CONSTRAINT "FileObject_ownerId_fkey"
-          FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-      END IF;
-    ELSE
-      RAISE NOTICE 'Skipping FileObject_ownerId_fkey because users.id type % does not match ownerId type %', user_type, owner_type;
-    END IF;
-  END IF;
-END $$;
+-- FileObject ownership is left untouched here to avoid cross-type issues on heterogeneous schemas
