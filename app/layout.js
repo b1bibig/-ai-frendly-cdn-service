@@ -3,6 +3,8 @@ import { Space_Grotesk } from "next/font/google";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Providers from "./providers";
+import { BillingGauge } from "./components/BillingGauge";
+import { DevCreditHelper } from "./components/DevCreditHelper";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -55,6 +57,8 @@ export default async function RootLayout({ children }) {
               </a>
             </footer>
           </div>
+          <BillingGauge />
+          <DevCreditHelper />
           <div className="legal-floating-links">
             <a className="legal-floating-button" href="/terms" target="_blank" rel="noreferrer">
               이용약관

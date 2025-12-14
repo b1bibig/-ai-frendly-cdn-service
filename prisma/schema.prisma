@@ -1,20 +1,39 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")  
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
+enum AccountStatus {
+  ACTIVE
+  OVERDRAFT
+  SUSPENDED
+}
+
 model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  uidToken     String    @unique @map("uid_token")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  invites      Invite[]  @relation("UserInvites")
+  id                     Int             @id @default(autoincrement())
+  email                  String          @unique
+  passwordHash           String          @map("password_hash")
+  uidToken               String          @unique @map("uid_token")
+
+  walletBalanceUsd       Float           @default(0) @map("wallet_balance_usd")
+  lifetimeChargedUsd     Float           @default(0) @map("lifetime_charged_usd")
+  lifetimeStorageCostUsd Float           @default(0) @map("lifetime_storage_cost_usd")
+  lifetimeCdnCostUsd     Float           @default(0) @map("lifetime_cdn_cost_usd")
+
+  accountStatus          AccountStatus   @default(ACTIVE) @map("account_status")
+  overdraftAt            DateTime?       @map("overdraft_at")
+
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+
+  invites                Invite[]        @relation("UserInvites")
+  billingMonths          BillingMonth[]
+  fileObjects            FileObject[]
 
   @@map("users")
 }
@@ -31,9 +50,32 @@ model Invite {
   @@map("invites")
 }
 
+model BillingMonth {
+  id             String   @id @default(cuid())
+  userId         Int      @map("user_id")
+
+  year           Int
+  month          Int
+
+  storageCostUsd Float    @default(0) @map("storage_cost_usd")
+  cdnCostUsd     Float    @default(0) @map("cdn_cost_usd")
+
+  storageGbDays  Float    @default(0) @map("storage_gb_days")
+  cdnBytes       BigInt   @default(0) @map("cdn_bytes")
+  cdnHits        BigInt   @default(0) @map("cdn_hits")
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, year, month])
+  @@map("billing_months")
+}
+
 model FileObject {
   id           String   @id @default(cuid())
-  ownerId      String
+  ownerId      Int      @map("ownerId")
   rootUid      String
 
   fullPath     String
@@ -41,13 +83,16 @@ model FileObject {
   parentPath   String
   name         String
 
-  isDirectory  Boolean @default(false)
+  isDirectory  Boolean  @default(false)
   size         Int?
   mimeType     String?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  owner        User     @relation(fields: [ownerId], references: [id])
+
   @@unique([ownerId, rootUid, fullPath])
   @@index([ownerId, rootUid, parentPath])
+  @@map("FileObject")
 }
